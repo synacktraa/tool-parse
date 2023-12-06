@@ -4,7 +4,7 @@
 
 ---
 
-<p align="center">Effortless schema creation and smooth invocation based on given function's signature or metadata.</p>
+<p align="center">Effortless function schema creation and efficient invocation based on given function's signature or metadata.</p>
 
 
 ## 🚀 Installation
@@ -17,75 +17,6 @@ pip install hypertion
 
 ## Usage 🤗
 
-#### Create schema for function calling
-
-```py
-from enum import Enum
-from hypertion import HyperFunction
-
-hyperfunction = HyperFunction()
-
-class Unit(str, Enum):
-    celsius = "celsius"
-    fahrenheit = "fahrenheit"
-
-@hyperfunction.takeover(
-    description="Get the current weather in a given location"
-)
-def get_current_weather(
-    location: str = HyperFunction.criteria(
-        description="The city and state, e.g. San Francisco, CA"), 
-    unit: Unit = HyperFunction.criteria(
-        default=Unit.fahrenheit, description="The temperature unit scale"
-    )
-):
-    return {
-        "location": location,
-        "temperature": "72",
-        "unit": unit.value,
-        "forecast": ["sunny", "windy"],
-    }
-
-functions = hyperfunction.as_open_functions
-```
-
-#### Pass the functions to LLM to generate signature or metadata
-
-```py
-import openai
-
-def get_function_signature(prompt: str, functions: list[dict]):
-    openai.api_key = "EMPTY"
-    openai.api_base = "http://luigi.millennium.berkeley.edu:8000/v1"
-    try:
-        completion = openai.ChatCompletion.create(
-            model="gorilla-openfunctions-v1",
-            temperature=0.0,
-            messages=[{"role": "user", "content": prompt}],
-            functions=functions,
-        )
-        return completion.choices[0].message.content
-    except Exception as e:
-        print(e)
-
-signature = get_function_signature(
-    prompt="What's the weather like in Boston?", functions=functions
-)
-```
-
-#### Invoke the generated signature
-
-```py
-print(hyperfunction.invoke_from_signature(signature=signature))
-```
-```
-{'location': 'Boston', 'temperature': '72', 'unit': 'celsius', 'forecast': ['sunny', 'windy']}
-```
-
----
-
-## Deep Dive 🤗
-
 #### Create a `HyperFunction` instance
 
 ```py
@@ -96,111 +27,231 @@ hyperfunction = HyperFunction()
 
 #### Use the `takeover` decorator to register a function and utilize the `criteria` static method to define the conditions for parameter evaluation when invoking the function.
 
+
 ```py
 import json
-from enum import Enum
 
-class Choice(Enum):
-    choice1 = '1'
-    choice2 = '2'
+from enum import Enum
+from pydantic import BaseModel, Field
+
+class Unit(str, Enum):
+    celsius = "celsius"
+    fahrenheit = "fahrenheit"
+
+class Settings(BaseModel):
+    unit: Unit = Field(description="The unit scale to represent temperature")
+    forecast: bool = Field(
+        default=False, description="If set to True, returns the forecasting."
+    )
 
 @hyperfunction.takeover(
-    description="<Function's Description>"
+    description="Get the current weather for a given location"
 )
-def function(
-    string_param: str = HyperFunction.criteria(
-        description="<Description of the parameter>"),
-    enum_param: Choice = HyperFunction.criteria(
-        default=Choice.choice1, description="<Description of the parameter>"),
-    int_param: int = HyperFunction.criteria(
-        10, description="<Description of the parameter>")
+def get_current_weather(
+    location: str = HyperFunction.criteria(
+        description="The city and state, e.g. San Francisco, CA"),
+    settings: Settings = HyperFunction.criteria(
+        description="Settings to use for getting current weather."
+    )
 ):
-    ...
+    info = {
+        "location": location,
+        "temperature": "72",
+        "unit": settings.unit.value,
+    }
+    if settings.forecast is True:
+        info = info | {"forecast": ["sunny", "windy"]}
+    
+    return info
 ```
 
-> Only `str`, `int`, `list`, `dict` and `enum.Enum` types are supported.
+---
 
-#### Retrieve the schema specific to the LLM function.
+<details>
 
-- `OpenAI` function schema
-    ```py
-    openai_functions = hyperfunction.as_openai_functions
-    print(json.dumps(openai_functions, indent=4))
-    ```
+<summary>
+OpenFunctions Schema Representation
 
-    ```
-    [
-        {
-            "name": "function",
-            "description": "<Function's Description>",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "string_param": {
-                        "type": "string",
-                        "description": "<Description of the parameter>"
-                    },
-                    "enum_param": {
-                        "type": "string",
-                        "description": "<Description of the parameter>",
-                        "enum": [
-                            "choice1",
-                            "choice2"
-                        ]
-                    },
-                    "int_param": {
-                        "type": "integer",
-                        "description": "<Description of the parameter>"
-                    }
+```py
+print(json.dumps(hyperfunction.as_open_functions, indent=4))
+```
+</summary>
+
+```json
+[
+    {
+        "api_call": "get_current_weather",
+        "name": "get_current_weather",
+        "description": "Get the current weather for a given location",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "location": {
+                    "type": "string",
+                    "description": "The city and state, e.g. San Francisco, CA"
                 },
-                "required": [
-                    "string_param"
-                ]
-            }
+                "settings": {
+                    "type": "object",
+                    "description": "Settings to use for getting current weather.",
+                    "properties": {
+                        "unit": {
+                            "type": "string",
+                            "description": "The unit scale to represent temperature",
+                            "enum": [
+                                "celsius",
+                                "fahrenheit"
+                            ]
+                        },
+                        "forecast": {
+                            "type": "boolean",
+                            "description": "If set to True, returns the forecasting."
+                        }
+                    },
+                    "required": [
+                        "unit"
+                    ]
+                }
+            },
+            "required": [
+                "location",
+                "settings"
+            ]
         }
-    ]
-    ```
+    }
+]
+```
+</details>
 
-- `Gorilla` function schema
+---
 
-    ```py
-    open_functions = hyperfunction.as_open_functions
-    print(json.dumps(open_functions, indent=4))
-    ```
+<details>
 
-    ```
-    [
-        {
-            "api_call": "function",
-            "name": "function",
-            "description": "<Function's Description>",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "string_param": {
-                        "type": "string",
-                        "description": "<Description of the parameter>"
-                    },
-                    "enum_param": {
-                        "type": "string",
-                        "description": "<Description of the parameter>",
-                        "enum": [
-                            "choice1",
-                            "choice2"
-                        ]
-                    },
-                    "int_param": {
-                        "type": "integer",
-                        "description": "<Description of the parameter>"
-                    }
+<summary>
+OpenAIFunctions Schema Representation
+
+```py
+print(json.dumps(hyperfunction.as_openai_functions, indent=4))
+```
+</summary>
+
+```json
+[
+    {
+        "api_call": "get_current_weather",
+        "name": "get_current_weather",
+        "description": "Get the current weather for a given location",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "location": {
+                    "type": "string",
+                    "description": "The city and state, e.g. San Francisco, CA"
                 },
-                "required": [
-                    "string_param"
-                ]
-            }
+                "settings": {
+                    "type": "object",
+                    "description": "Settings to use for getting current weather.",
+                    "properties": {
+                        "unit": {
+                            "type": "string",
+                            "description": "The unit scale to represent temperature",
+                            "enum": [
+                                "celsius",
+                                "fahrenheit"
+                            ]
+                        },
+                        "forecast": {
+                            "type": "boolean",
+                            "description": "If set to True, returns the forecasting."
+                        }
+                    },
+                    "required": [
+                        "unit"
+                    ]
+                }
+            },
+            "required": [
+                "location",
+                "settings"
+            ]
         }
-    ]
-    ```
+    }
+]
+```
+
+</details>
+
+---
+
+#### OpenFunctions `Signature` invocation
+
+```py
+import openai
+from hypertion.types import Signature
+
+def get_openfunctions_response(prompt: str, functions: list[dict]):
+    openai.api_key = "EMPTY"
+    openai.api_base = "http://luigi.millennium.berkeley.edu:8000/v1"
+    """This API endpoint is only for testing purpose. Do not use it for production use."""
+    try:
+        completion = openai.ChatCompletion.create(
+            model="gorilla-openfunctions-v0",
+            temperature=0.0,
+            messages=[{"role": "user", "content": prompt}],
+            functions=functions,
+        )
+        return completion.choices[0].message.content
+    except Exception as e:
+        print(e)
+
+signature = Signature(get_openfunctions_response(
+    prompt="What is the current weather in Kolkata in fahrenheit scale with forecasting?", 
+    functions=hyperfunction.as_open_functions
+))
+
+output = hyperfunction.invoke(signature)
+print(output)
+```
+```
+{'location': 'Kolkata', 'temperature': '72', 'unit': 'fahrenheit', 'forecast': ['sunny', 'windy']}
+```
+
+#### OpenAIFunctions `Metadata` invocation
+
+```py
+import json
+
+import openai
+from hypertion.types import Metadata
+
+def get_openaifunctions_response(prompt: str, functions: list[dict]):
+    openai.api_key = "<OPENAI-API-KEY>"
+    try:
+        completion = openai.ChatCompletion.create(
+            model="gpt-4",
+            temperature=0.0,
+            messages=[{"role": "user", "content": prompt}],
+            functions=functions,
+        )
+        function_ = completion.choices[0].message.function_call
+        return function_.name, json.loads(function_.arguments)
+
+    except Exception as e:
+        print(e)
+
+name, arguments = get_openaifunctions_response(
+    prompt="What is the current weather in Kolkata in fahrenheit scale with forecasting?", 
+    functions=hyperfunction.as_openai_functions
+)
+
+output = hyperfunction.invoke(Metadata(name=name, arguments=arguments))
+print(output)
+```
+```
+{'location': 'Kolkata', 'temperature': '72', 'unit': 'fahrenheit', 'forecast': ['sunny', 'windy']}
+```
+
+> Important: The `hypertion` library lacks the capability to interact directly with LLM-specific APIs, meaning it cannot directly request gorilla-generated Signatures or GPT-generated Metadata from the LLM. This design choice was made to provide more flexibility to developers, allowing them to integrate or adapt different tools and libraries as per their project needs.
+
 
 #### Attach new `HyperFunction` instance
 
@@ -220,40 +271,57 @@ def new_function(
 ):
     ...
 
+```
+<details>    
+<summary>
+Merged Schema
+
+```py
+import json
+
 hyperfunction.attach_hyperfunction(new_hyperfunction)
-open_functions = hyperfunction.as_open_functions
-
-print(json.dumps(open_functions, indent=4))
+print(json.dumps(hyperfunction.as_open_functions, indent=4))
 ```
+</summary>
 
-```
+```json
 [
     {
-        "api_call": "function",
-        "name": "function",
-        "description": "<Function's Description>",
+        "api_call": "get_current_weather",
+        "name": "get_current_weather",
+        "description": "Get the current weather for a given location",
         "parameters": {
             "type": "object",
             "properties": {
-                "string_param": {
+                "location": {
                     "type": "string",
-                    "description": "<Description of the parameter>"
+                    "description": "The city and state, e.g. San Francisco, CA"
                 },
-                "enum_param": {
-                    "type": "string",
-                    "description": "<Description of the parameter>",
-                    "enum": [
-                        "choice1",
-                        "choice2"
+                "settings": {
+                    "type": "object",
+                    "description": "Settings to use for getting current weather.",
+                    "properties": {
+                        "unit": {
+                            "type": "string",
+                            "description": "The unit scale to represent temperature",
+                            "enum": [
+                                "celsius",
+                                "fahrenheit"
+                            ]
+                        },
+                        "forecast": {
+                            "type": "boolean",
+                            "description": "If set to True, returns the forecasting."
+                        }
+                    },
+                    "required": [
+                        "unit"
                     ]
-                },
-                "int_param": {
-                    "type": "integer",
-                    "description": "<Description of the parameter>"
                 }
             },
             "required": [
-                "string_param"
+                "location",
+                "settings"
             ]
         }
     },
@@ -280,66 +348,7 @@ print(json.dumps(open_functions, indent=4))
     }
 ]
 ```
-
-#### Invoking the function using LLM generated `Signature` or `Metadata`
-
-> Note: The `hypertion` module does not have access to any LLM-specific API, meaning it cannot directly invoke LLM to obtain gorilla-generated Signatures or GPT-generated Metadata. Implementing this functionality seems unnecessary, as various libraries produce outputs in different schemas.
-
-- From Gorilla's OpenFunction Signature
-
-    ```py
-    import openai
-
-    def get_function_signature(prompt: str, functions: list[dict]):
-        openai.api_key = "EMPTY"
-        openai.api_base = "http://luigi.millennium.berkeley.edu:8000/v1"
-        try:
-            completion = openai.ChatCompletion.create(
-                model="gorilla-openfunctions-v1",
-                temperature=0.0,
-                messages=[{"role": "user", "content": prompt}],
-                functions=functions,
-            )
-            return completion.choices[0].message.content
-        except Exception as e:
-            print(e)
-
-    signature = get_function_signature(
-        prompt="<Your Prompt>", functions=hyperfunction.as_open_functions
-    )
-
-    output = hyperfunction.invoke_from_signature(signature=signature)
-    ```
-
-- From OpenAI's Function Metadata
-
-    ```py
-    import json
-    import openai
-
-    def get_function_metadata(prompt: str, functions: list[dict]):
-        openai.api_key = "<OPENAI-API-KEY>"
-        try:
-            completion = openai.ChatCompletion.create(
-                model="gpt-4",
-                temperature=0.0,
-                messages=[{"role": "user", "content": prompt}],
-                functions=functions,
-            )
-            function_ = completion.choices[0].message.function_call
-            return function_.name, json.loads(function_.arguments)
-
-        except Exception as e:
-            print(e)
-
-    name, arguments = get_function_metadata(
-        prompt="<Your Prompt>", functions=hyperfunction.as_openai_functions
-    )
-
-    output = hyperfunction.invoke(name=name, arguments=arguments)
-    ```
-
----
+</details>
 
 ### Conclusion
 

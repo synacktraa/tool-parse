@@ -1,8 +1,9 @@
 from typing import Callable, Any
+
 from pydantic import BaseModel
 
 class FunctionInfo(BaseModel):
-    obj: Callable[..., Any]
+    memloc: Callable[..., Any]
     description: str
 
 class CriteriaInfo(BaseModel):

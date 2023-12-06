@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "hypertion"
-version = "0.1.0"
+version = "1.0.0"
 description = "Streamlined and Efficient LLM function calling."
 authors = ["Harsh Verma <synacktra.work@gmail.com>"]
 keywords = ["function-calling", "openfunctions", "openai", "gorilla", "gpt"]
