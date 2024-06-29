@@ -4,7 +4,7 @@
 
 ---
 
-<p align="center">Effortless function schema creation and efficient invocation based on given function's signature or metadata.</p>
+<p align="center">Making LLM Function-Calling Simpler.</p>
 
 
 ## 🚀 Installation
@@ -25,331 +25,215 @@ from hypertion import HyperFunction
 hyperfunction = HyperFunction()
 ```
 
-#### Use the `takeover` decorator to register a function and utilize the `criteria` static method to define the conditions for parameter evaluation when invoking the function.
+#### Use the `takeover` method to register the function
 
+> Check [notebooks](./notebooks) directory for complex function usage.
 
 ```py
-import json
+from typing import Literal
+from typing_extensions import TypedDict
 
-from enum import Enum
-from pydantic import BaseModel, Field
+class Settings(TypedDict):
+    """
+    Settings
+    @param unit: The unit scale to represent temperature.
+    @param forecast: If set to True, returns the forecasting.
+    """
+    unit: Literal['celsius', 'fahrenheit']
+    forecast: bool = False
 
-class Unit(str, Enum):
-    celsius = "celsius"
-    fahrenheit = "fahrenheit"
-
-class Settings(BaseModel):
-    unit: Unit = Field(description="The unit scale to represent temperature")
-    forecast: bool = Field(
-        default=False, description="If set to True, returns the forecasting."
-    )
-
-@hyperfunction.takeover(
-    description="Get the current weather for a given location"
-)
-def get_current_weather(
-    location: str = HyperFunction.criteria(
-        description="The city and state, e.g. San Francisco, CA"),
-    settings: Settings = HyperFunction.criteria(
-        description="Settings to use for getting current weather."
-    )
-):
+@hyperfunction.takeover
+def get_current_weather(location: str, *, settings: Settings):
+    """
+    Get the current weather.
+    @param location: Location to search for.
+    @param settings: Settings to use for getting current weather.
+    """
     info = {
         "location": location,
         "temperature": "72",
-        "unit": settings.unit.value,
+        "unit": settings['unit'],
     }
-    if settings.forecast is True:
-        info = info | {"forecast": ["sunny", "windy"]}
+    if settings['forecast'] is True:
+        return info | {"forecast": ["sunny", "windy"]}
     
     return info
 ```
 
----
+Supported Types: `str` | `int` | `float` | `bool` | `list` | `dict` | `pathlib.Path` | `typing.List` | `typing.Dict` | `typing.NamedTuple` | `typing_extensions.TypedDict` | `pydantic.BaseModel` | `typing.Literal` | `enum.Enum`
 
-<details>
+#### List registered functions
 
-<summary>
-OpenFunctions Schema Representation
-
-```py
-print(json.dumps(hyperfunction.as_open_functions, indent=4))
-```
-</summary>
-
-```json
-[
-    {
-        "api_call": "get_current_weather",
-        "name": "get_current_weather",
-        "description": "Get the current weather for a given location",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "location": {
-                    "type": "string",
-                    "description": "The city and state, e.g. San Francisco, CA"
-                },
-                "settings": {
-                    "type": "object",
-                    "description": "Settings to use for getting current weather.",
-                    "properties": {
-                        "unit": {
-                            "type": "string",
-                            "description": "The unit scale to represent temperature",
-                            "enum": [
-                                "celsius",
-                                "fahrenheit"
-                            ]
-                        },
-                        "forecast": {
-                            "type": "boolean",
-                            "description": "If set to True, returns the forecasting."
-                        }
-                    },
-                    "required": [
-                        "unit"
-                    ]
-                }
-            },
-            "required": [
-                "location",
-                "settings"
-            ]
-        }
-    }
-]
-```
-</details>
-
----
-
-<details>
-
-<summary>
-OpenAIFunctions Schema Representation
-
-```py
-print(json.dumps(hyperfunction.as_openai_functions, indent=4))
-```
-</summary>
-
-```json
-[
-    {
-        "api_call": "get_current_weather",
-        "name": "get_current_weather",
-        "description": "Get the current weather for a given location",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "location": {
-                    "type": "string",
-                    "description": "The city and state, e.g. San Francisco, CA"
-                },
-                "settings": {
-                    "type": "object",
-                    "description": "Settings to use for getting current weather.",
-                    "properties": {
-                        "unit": {
-                            "type": "string",
-                            "description": "The unit scale to represent temperature",
-                            "enum": [
-                                "celsius",
-                                "fahrenheit"
-                            ]
-                        },
-                        "forecast": {
-                            "type": "boolean",
-                            "description": "If set to True, returns the forecasting."
-                        }
-                    },
-                    "required": [
-                        "unit"
-                    ]
-                }
-            },
-            "required": [
-                "location",
-                "settings"
-            ]
-        }
-    }
-]
-```
-
-</details>
-
----
-
-#### OpenFunctions `Signature` invocation
-
-```py
-import openai
-from hypertion.types import Signature
-
-def get_openfunctions_response(prompt: str, functions: list[dict]):
-    openai.api_key = "EMPTY"
-    openai.api_base = "http://luigi.millennium.berkeley.edu:8000/v1"
-    """This API endpoint is only for testing purpose. Do not use it for production use."""
-    try:
-        completion = openai.ChatCompletion.create(
-            model="gorilla-openfunctions-v0",
-            temperature=0.0,
-            messages=[{"role": "user", "content": prompt}],
-            functions=functions,
-        )
-        return completion.choices[0].message.content
-    except Exception as e:
-        print(e)
-
-signature = Signature(get_openfunctions_response(
-    prompt="What is the current weather in Kolkata in fahrenheit scale with forecasting?", 
-    functions=hyperfunction.as_open_functions
-))
-
-output = hyperfunction.invoke(signature)
-print(output)
+```python
+hyperfunction.registry()
 ```
 ```
-{'location': 'Kolkata', 'temperature': '72', 'unit': 'fahrenheit', 'forecast': ['sunny', 'windy']}
+============================================================
+get_current_weather(
+   location: str,
+   *,
+   settings: Settings
+):
+"""Get the current weather."""
+============================================================
 ```
 
-#### OpenAIFunctions `Metadata` invocation
+#### Register a predefined function
 
-```py
-import json
+```python
+from some_module import some_function
 
-import openai
-from hypertion.types import Metadata
-
-def get_openaifunctions_response(prompt: str, functions: list[dict]):
-    openai.api_key = "<OPENAI-API-KEY>"
-    try:
-        completion = openai.ChatCompletion.create(
-            model="gpt-4",
-            temperature=0.0,
-            messages=[{"role": "user", "content": prompt}],
-            functions=functions,
-        )
-        function_ = completion.choices[0].message.function_call
-        return function_.name, json.loads(function_.arguments)
-
-    except Exception as e:
-        print(e)
-
-name, arguments = get_openaifunctions_response(
-    prompt="What is the current weather in Kolkata in fahrenheit scale with forecasting?", 
-    functions=hyperfunction.as_openai_functions
+hyperfunction.takeover(
+    some_function,
+    docstring="<Override docstring for the function>"
 )
+```
 
-output = hyperfunction.invoke(Metadata(name=name, arguments=arguments))
-print(output)
+### Use the `format` method to get function schema
+
+> LLM specific formats are available: `functionary`, `gorilla`, `mistral`, `gpt`, `claude`
+
+```python
+hyperfunction.format(as_json=True)
+# hyperfunction.format('<format>', as_json=True)
+```
+```json
+[
+    {
+        "name": "get_current_weather",
+        "description": "Get the current weather.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "location": {
+                    "type": "string",
+                    "description": "Location to search for."
+                },
+                "settings": {
+                    "type": "object",
+                    "properties": {
+                        "unit": {
+                            "type": "string",
+                            "enum": [
+                                "celsius",
+                                "fahrenheit"
+                            ],
+                            "description": "The unit scale to represent temperature."
+                        },
+                        "forecast": {
+                            "type": "boolean",
+                            "description": "If set to True, returns the forecasting."
+                        }
+                    },
+                    "required": [
+                        "unit"
+                    ],
+                    "description": "Settings to use for getting current weather."
+                }
+            },
+            "required": [
+                "location",
+                "settings"
+            ]
+        }
+    }
+]
+```
+---
+
+### Compose function `signature` as function-call object
+
+> Try [Gorilla+Hypertion Colab](https://colab.research.google.com/drive/1DKkXHdebEgj7AfXqw6Ro17KQ1RUBMgco?usp=sharing) for live example.
+
+```python
+signature =  """
+get_current_weather(
+    location='Kolkata', settings={'unit': 'fahrenheit'}
+)
+"""
+function_call = hyperfunction.compose(signature)
+function_call
+```
+```
+get_current_weather(
+   location='Kolkata',
+   settings={'unit': 'fahrenheit', 'forecast': False}
+)
+```
+
+Invoke the `function-call` object
+
+```python
+function_call()
+```
+```
+{'location': 'Kolkata', 'temperature': '72', 'unit': 'fahrenheit'}
+```
+
+### Compose function `metadata` as function-call object
+
+> Try [Functionary+Hypertion Colab](https://colab.research.google.com/drive/1azzJiAcYRFItlzwEfRPk6UzDUPVAZkUl?usp=sharing) for live example.
+
+```python
+name = 'get_current_weather'
+arguments = '{"location": "Kolkata", "settings": {"unit": "fahrenheit", "forecast": true}}'
+function_call = hyperfunction.compose(name=name, arguments=arguments) # Accepts both JsON and dictionary object
+function_call
+```
+```
+get_current_weather(
+   location='Kolkata',
+   settings={'unit': 'fahrenheit', 'forecast': True}
+)
+```
+
+Invoke the `function-call` object
+
+```python
+function_call()
 ```
 ```
 {'location': 'Kolkata', 'temperature': '72', 'unit': 'fahrenheit', 'forecast': ['sunny', 'windy']}
 ```
 
-> Important: The `hypertion` library lacks the capability to interact directly with LLM-specific APIs, meaning it cannot directly request gorilla-generated Signatures or GPT-generated Metadata from the LLM. This design choice was made to provide more flexibility to developers, allowing them to integrate or adapt different tools and libraries as per their project needs.
+> Important: The `hypertion` library lacks the capability to interact directly with LLM-specific APIs, meaning it cannot directly make request to any LLM. Its functionality is to generate schema and invoke signature/metadata generated from LLM(s). This design choice was made to provide more flexibility to developers, allowing them to integrate or adapt different tools and libraries as per their project needs.
 
 
-#### Attach new `HyperFunction` instance
+#### Combining two `HyperFunction` instance
 
 > Note: A single `HyperFunction` instance can hold multiple functions. Creating a new `HyperFunction` instance is beneficial only if you need a distinct set of functions. This approach is especially effective when deploying Agent(s) to utilize functions designed for particular tasks.
 
 ```py
 new_hyperfunction = HyperFunction()
 
-@new_hyperfunction.takeover(
-    description="<Function's Description>"
-)
+@new_hyperfunction.takeover
 def new_function(
-    param1: str = HyperFunction.criteria(
-        description="<Description of the parameter>"),
-    param2: int = HyperFunction.criteria(
-        100, description="<Description of the parameter>")
+    param1: str,
+    param2: int = 100
 ):
+    """Description for the new function"""
     ...
 
+combined_hyperfunction = hyperfunction + new_hyperfunction
+combined_hyperfunction.registry()
 ```
-<details>    
-<summary>
-Merged Schema
-
-```py
-import json
-
-hyperfunction.attach_hyperfunction(new_hyperfunction)
-print(json.dumps(hyperfunction.as_open_functions, indent=4))
 ```
-</summary>
-
-```json
-[
-    {
-        "api_call": "get_current_weather",
-        "name": "get_current_weather",
-        "description": "Get the current weather for a given location",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "location": {
-                    "type": "string",
-                    "description": "The city and state, e.g. San Francisco, CA"
-                },
-                "settings": {
-                    "type": "object",
-                    "description": "Settings to use for getting current weather.",
-                    "properties": {
-                        "unit": {
-                            "type": "string",
-                            "description": "The unit scale to represent temperature",
-                            "enum": [
-                                "celsius",
-                                "fahrenheit"
-                            ]
-                        },
-                        "forecast": {
-                            "type": "boolean",
-                            "description": "If set to True, returns the forecasting."
-                        }
-                    },
-                    "required": [
-                        "unit"
-                    ]
-                }
-            },
-            "required": [
-                "location",
-                "settings"
-            ]
-        }
-    },
-    {
-        "api_call": "new_function",
-        "name": "new_function",
-        "description": "<Function's Description>",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "param1": {
-                    "type": "string",
-                    "description": "<Description of the parameter>"
-                },
-                "param2": {
-                    "type": "integer",
-                    "description": "<Description of the parameter>"
-                }
-            },
-            "required": [
-                "param1"
-            ]
-        }
-    }
-]
+============================================================
+get_current_weather(
+   location: str,
+   *,
+   settings: Settings
+):
+"""Get the current weather."""
+============================================================
+new_function(
+   param1: str,
+   param2: int = 100
+):
+"""Description for the new function"""
+============================================================
 ```
-</details>
 
 ### Conclusion
 
-The key strength of this approach lies in its ability to automate schema creation, sparing developers the time and complexity of manual setup. By utilizing the `takeover` decorator and `criteria` method, the system efficiently manages multiple functions within a `HyperFunction` instance, a boon for deploying Agents in LLM applications. This automation not only streamlines the development process but also ensures precision and adaptability in handling task-specific functions, making it a highly effective solution for agent-driven scenarios.
+The key strength of this approach lies in its ability to automate schema creation, sparing developers the time and complexity of manual setup. By utilizing the `takeover` method, the system efficiently manages multiple functions within a `HyperFunction` instance, a boon for deploying Agents in LLM applications. This automation not only streamlines the development process but also ensures precision and adaptability in handling task-specific functions, making it a highly effective solution for agent-driven scenarios.
