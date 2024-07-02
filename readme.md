@@ -27,7 +27,7 @@ hyperfunction = HyperFunction()
 
 #### Use the `takeover` method to register the function
 
-> Check [notebooks](./notebooks) directory for complex function usage.
+> Check [notebooks](./cookbooks) directory for complex function usage.
 
 ```py
 from typing import Literal
