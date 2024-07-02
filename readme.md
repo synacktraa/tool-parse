@@ -172,6 +172,8 @@ function_call()
 
 ### Compose function `metadata` as function-call object
 
+> Try [Mistral+Hypertion Colab](https://colab.research.google.com/drive/1y0hf-8leMnk0fnTPY9FWnCgu3ePJqx0G?usp=sharing) for live example.
+
 > Try [Functionary+Hypertion Colab](https://colab.research.google.com/drive/1azzJiAcYRFItlzwEfRPk6UzDUPVAZkUl?usp=sharing) for live example.
 
 ```python
