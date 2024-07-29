@@ -1,22 +1,20 @@
 [tool.poetry]
-name = "hypertion"
-version = "2.0.0"
-description = "Streamlined and Efficient LLM function calling."
+name = "tool-parse"
+version = "0.0.1"
+description = "Making LLM Tool-Calling Simpler."
+license = "The Unlicense (Unlicense)"
 authors = ["Harsh Verma <synacktra.work@gmail.com>"]
-keywords = ["function-calling", "functionary", "gorilla", "mistral", "claude", "gpt"]
 readme = "readme.md"
-license = "GPL-3.0-only"
-homepage = "https://github.com/synacktraa/hypertion"
-repository = "https://github.com/synacktraa/hypertion"
-include = [
-    "LICENSE",
-]
+homepage = "https://github.com/synacktraa/tool-parse"
+repository = "https://github.com/synacktraa/tool-parse"
+keywords = ["tool-calling", "function-calling", "structured-tool", "LLM"]
 
 [tool.poetry.dependencies]
 python = ">=3.8,<4.0"
-pydantic = ">=1.10"
-docstring-parser = "^0.16"
+docstring-parser = "0.16"
 
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.2"
 
 [build-system]
 requires = ["poetry-core"]

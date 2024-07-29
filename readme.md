@@ -1,214 +1,156 @@
-<div align="center">
-  <img src="./assets/main.gif" alt="hypertion">
-</div>
-
----
-
-<p align="center">Making LLM Function-Calling Simpler.</p>
+<p align="center">Making LLM Tool-Calling Simpler.</p>
 
 
 ## 🚀 Installation
 
 ```sh
-pip install hypertion
+pip install tool-parse
 ```
 
 ---
 
 ## Usage 🤗
 
-#### Create a `HyperFunction` instance
+### Create a new registry
 
 ```py
-from hypertion import HyperFunction
+from tool_parse import ToolRegistry
 
-hyperfunction = HyperFunction()
+tr = ToolRegistry()
 ```
 
-#### Use the `takeover` method to register the function
+### Defining tools and registering them
 
-> Check [notebooks](./cookbooks) directory for complex function usage.
+`tool-parse` supports functions(both synchronous/asynchronous), `pydantic.BaseModel`, `typing.TypedDict` and `typing.NamedTuple` (I might add dataclass support in future). 
 
-```py
-from typing import Literal
-from typing_extensions import TypedDict
+> Note: pydantic module is not pre-installed with tool-parse, you will have to install it explicitly using `pip install pydantic`
 
-class Settings(TypedDict):
+There are multiple ways of registering tools:
+
+> Adding a docstring is optional, but it's a good practice to include description for parameters. I personally like sphinx format, but you can use any format supported by `docstring_parser` library.
+
+- Decorating the object:
+
+  ```python
+  @tr.register
+  class Td(TypedDict):
     """
-    Settings
-    @param unit: The unit scale to represent temperature.
-    @param forecast: If set to True, returns the forecasting.
+    A useless typeddict
+    :param var: A useless parameter
     """
-    unit: Literal['celsius', 'fahrenheit']
-    forecast: bool = False
+    var: int
+  ```
 
-@hyperfunction.takeover
-def get_current_weather(location: str, *, settings: Settings):
+  Overriding tool name and description
+  ```python
+  @tr.register(name="search_tool", description="Searches for web")
+  def fn(var: int):
     """
-    Get the current weather.
-    @param location: Location to search for.
-    @param settings: Settings to use for getting current weather.
+    A useless function
+    :param var: A useless parameter
     """
-    info = {
-        "location": location,
-        "temperature": "72",
-        "unit": settings['unit'],
-    }
-    if settings['forecast'] is True:
-        return info | {"forecast": ["sunny", "windy"]}
-    
-    return info
-```
+    ...
+  ```
 
-Supported Types: `str` | `int` | `float` | `bool` | `list` | `dict` | `pathlib.Path` | `typing.List` | `typing.Dict` | `typing.NamedTuple` | `typing_extensions.TypedDict` | `pydantic.BaseModel` | `typing.Literal` | `enum.Enum`
+- Passing the object directly
 
-#### List registered functions
+  ```python
+  class Nt(NamedTuple):
+    """
+    A useless namedtuple
+    :param var: A useless parameter
+    """
+    var: int
+
+  tr.register(Nt)
+  ```
+
+  Overriding tool name and description
+  ```python
+  async def fn(var: int):
+    """
+    A useless function
+    :param var: A useless parameter
+    """
+    ...
+
+  tr.register(fn, name="search_tool", description="Searches for web")
+  ```
+
+- Using key-value pair
+
+  > This method doesn't allow overriding description
+
+  ```python
+  class Model(BaseModel):
+    """
+    A useless pydantic model
+    :param var: A useless parameter
+    """
+    var: int
+
+  tr['p_model'] = Model
+  ```
+
+Supported parameter types: `str` | `int` | `float` | `bool` | `set` | `list` | `dict` | `pathlib.Path` | `typing.Set` | `typing.List` | `typing.Dict` | `typing.NamedTuple` | `typing.TypedDict` | `pydantic.BaseModel` | `typing.Literal` | `enum.Enum`
+
+### Check if a name has already been registered
 
 ```python
-hyperfunction.registry()
-```
-```
-============================================================
-get_current_weather(
-   location: str,
-   *,
-   settings: Settings
-):
-"""Get the current weather."""
-============================================================
+'tool_name' in tr
 ```
 
-#### Register a predefined function
+### Get registered tools as schema
 
-```python
-from some_module import some_function
+> `base` and `claude` formats are available, default - `base` format works with almost all the providers.
 
-hyperfunction.takeover(
-    some_function,
-    docstring="<Override docstring for the function>"
-)
-```
+- as dictionary object
+  ```python
+  tools = tr.marshal('base') # list[dict]
+  ```
 
-### Use the `format` method to get function schema
+- as JsON object
+  ```python
+  tools = tr.marshal(as_json=True) # str
+  ```
 
-> LLM specific formats are available: `functionary`, `gorilla`, `mistral`, `gpt`, `claude`
+- saving JsON object to a file
+  ```python
+  tools = tr.marshal('claude', persist_at='/path/to/file.json') # str
+  ```
 
-```python
-hyperfunction.format(as_json=True)
-# hyperfunction.format('<format>', as_json=True)
-```
-```json
-[
-    {
-        "name": "get_current_weather",
-        "description": "Get the current weather.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "location": {
-                    "type": "string",
-                    "description": "Location to search for."
-                },
-                "settings": {
-                    "type": "object",
-                    "properties": {
-                        "unit": {
-                            "type": "string",
-                            "enum": [
-                                "celsius",
-                                "fahrenheit"
-                            ],
-                            "description": "The unit scale to represent temperature."
-                        },
-                        "forecast": {
-                            "type": "boolean",
-                            "description": "If set to True, returns the forecasting."
-                        }
-                    },
-                    "required": [
-                        "unit"
-                    ],
-                    "description": "Settings to use for getting current weather."
-                }
-            },
-            "required": [
-                "location",
-                "settings"
-            ]
-        }
-    }
-]
-```
+- get single tool schema
+  ```python
+  tool = tr['tool_name'] # dict
+  ```
+
 ---
 
-### Compose function `signature` as function-call object
-
-> Try [Gorilla+Hypertion Colab](https://colab.research.google.com/drive/1DKkXHdebEgj7AfXqw6Ro17KQ1RUBMgco?usp=sharing) for live example.
-
-```python
-signature =  """
-get_current_weather(
-    location='Kolkata', settings={'unit': 'fahrenheit'}
-)
-"""
-function_call = hyperfunction.compose(signature)
-function_call
-```
-```
-get_current_weather(
-   location='Kolkata',
-   settings={'unit': 'fahrenheit', 'forecast': False}
-)
-```
-
-Invoke the `function-call` object
-
-```python
-function_call()
-```
-```
-{'location': 'Kolkata', 'temperature': '72', 'unit': 'fahrenheit'}
-```
-
-### Compose function `metadata` as function-call object
-
-> Try [Mistral+Hypertion Colab](https://colab.research.google.com/drive/1y0hf-8leMnk0fnTPY9FWnCgu3ePJqx0G?usp=sharing) for live example.
-
-> Try [Functionary+Hypertion Colab](https://colab.research.google.com/drive/1azzJiAcYRFItlzwEfRPk6UzDUPVAZkUl?usp=sharing) for live example.
-
-```python
-name = 'get_current_weather'
-arguments = '{"location": "Kolkata", "settings": {"unit": "fahrenheit", "forecast": true}}'
-function_call = hyperfunction.compose(name=name, arguments=arguments) # Accepts both JsON and dictionary object
-function_call
-```
-```
-get_current_weather(
-   location='Kolkata',
-   settings={'unit': 'fahrenheit', 'forecast': True}
-)
-```
-
-Invoke the `function-call` object
-
-```python
-function_call()
-```
-```
-{'location': 'Kolkata', 'temperature': '72', 'unit': 'fahrenheit', 'forecast': ['sunny', 'windy']}
-```
-
-> Important: The `hypertion` library lacks the capability to interact directly with LLM-specific APIs, meaning it cannot directly make request to any LLM. Its functionality is to generate schema and invoke signature/metadata generated from LLM(s). This design choice was made to provide more flexibility to developers, allowing them to integrate or adapt different tools and libraries as per their project needs.
+### Invoking a tool
 
 
-#### Combining two `HyperFunction` instance
+- From call expression
 
-> Note: A single `HyperFunction` instance can hold multiple functions. Creating a new `HyperFunction` instance is beneficial only if you need a distinct set of functions. This approach is especially effective when deploying Agent(s) to utilize functions designed for particular tasks.
+  ```python
+  output = tr.compile('function("arg1", key="value")')
+  ```
+
+- From call metadata
+
+  ```python
+  output = tr.compile(name='function', arguments={'key': 'value'})
+  ```
+
+> Important: The `tool-parse` library lacks the capability to interact directly with LLM-specific APIs, meaning it cannot directly make request to any LLM. Its functionality is to generate schema and invoke expression/metadata generated from LLM(s). This design choice was made to provide more flexibility to developers, allowing them to integrate or adapt different tools and libraries as per their project needs.
+
+### Combining two registries
+
+> Note: A single `ToolRegistry` instance can hold as many tools you want. Creating a new `ToolRegistry` instance is beneficial only if you need a distinct set of tools. This approach is especially effective when deploying Agent(s) to utilize tools designed for particular tasks.
 
 ```py
-new_hyperfunction = HyperFunction()
+new_registry = ToolRegistry()
 
-@new_hyperfunction.takeover
+@new_registry.register
 def new_function(
     param1: str,
     param2: int = 100
@@ -216,26 +158,5 @@ def new_function(
     """Description for the new function"""
     ...
 
-combined_hyperfunction = hyperfunction + new_hyperfunction
-combined_hyperfunction.registry()
+combined_registry = tr + new_registry
 ```
-```
-============================================================
-get_current_weather(
-   location: str,
-   *,
-   settings: Settings
-):
-"""Get the current weather."""
-============================================================
-new_function(
-   param1: str,
-   param2: int = 100
-):
-"""Description for the new function"""
-============================================================
-```
-
-### Conclusion
-
-The key strength of this approach lies in its ability to automate schema creation, sparing developers the time and complexity of manual setup. By utilizing the `takeover` method, the system efficiently manages multiple functions within a `HyperFunction` instance, a boon for deploying Agents in LLM applications. This automation not only streamlines the development process but also ensures precision and adaptability in handling task-specific functions, making it a highly effective solution for agent-driven scenarios.
