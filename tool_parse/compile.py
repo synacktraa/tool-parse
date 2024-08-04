@@ -1,4 +1,5 @@
 import ast
+import json
 import inspect
 import asyncio
 import typing as t
@@ -202,7 +203,13 @@ def compile_value(__annotation: t.Type | t.ForwardRef, raw_value: t.Any):
         f"{annot.__name__!r} type is not supported.\nSupported types: {_SUPPORTED_TYPES_REPR}"
     )
 
-def compile_object(__obj: t.Any, *, arguments: t.Dict[str, t.Any]):
+def compile_object(__obj: t.Any, *, arguments: str | t.Dict[str, t.Any]):
+    if isinstance(arguments, str):
+        try:
+            arguments: t.Dict[str, t.Any] = json.loads(arguments)
+        except json.JSONDecodeError:
+            raise ValueError("arguments is not a valid JSON object")
+            
     if is_pydantic_model(__obj):
         compile_fn = compile_pydantic_object            
     elif is_typeddict(__obj):

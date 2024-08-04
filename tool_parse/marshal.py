@@ -182,16 +182,14 @@ def marshal_object(
     else:
         MarshalError(f"Schema generation failed, given object is not supported")
     
+    fn_schema = {'name': name or __obj.__name__}
     ds = parse_from_object(__obj)
+    if (desc := description or ds.description):
+        fn_schema['description'] = desc
+
     parameters = marshal_parameters(
         generate_fn(__obj, map_param_to_description(ds))
     )
-    fn_schema = {
-        'name': name or __obj.__name__, 
-        'input_schema' if spec == 'claude' else 'parameters': parameters
-    }
-    
-    if (desc := description or ds.short_description):
-        fn_schema['description'] = desc
+    fn_schema['input_schema' if spec == 'claude' else 'parameters'] = parameters
 
     return {'type': 'function', 'function': fn_schema}

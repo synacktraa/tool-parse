@@ -36,10 +36,35 @@ pip install tool-parse
    - Generate schemas in 'base' and 'claude' formats
    - Easy tool invocation from call expressions or metadata
 
+## Cookbooks
+
+- [GorillaLLM Integration](https://colab.research.google.com/drive/1C2WCgIZ7LnkpLt3KARL9ROh4iLwaACa6?usp=sharing)
+
 
 ## Usage 🤗
 
-### Create a new registry
+### Creating independent tools
+
+```python
+from tool_parse import tool
+
+@tool
+def search_web(query: str, max_results: int = 10):
+    """
+    Search the web for given query
+    :param query: The search query string
+    :param max_results: Maximum number of results to return
+    """
+    ...
+
+# Get tool schema
+schema = search_web.marshal('base') # `base` and `claude` schema are available
+
+# Invoke tool from LLM generated arguments
+output = search_web.compile(arguments={"query": "Transformers"})
+```
+
+### Creating a tool registry
 
 ```python
 from tool_parse import ToolRegistry
@@ -47,7 +72,7 @@ from tool_parse import ToolRegistry
 tr = ToolRegistry()
 ```
 
-### Defining tools and registering them
+#### Defining tools and registering them
 
 There are multiple ways of registering tools:
 
@@ -137,13 +162,13 @@ tr['create_order'] = OrderModel
 tr.register_multiple(UserInfo, search_function, ProductInfo)
 ```
 
-### Check if a name has already been registered
+#### Check if a name has already been registered
 
 ```python
 'search_web' in tr  # Returns True if 'search_web' is registered, False otherwise
 ```
 
-### Get registered tools as schema
+#### Get registered tools as schema
 
 > `base` and `claude` formats are available. The default `base` format works with almost all providers.
 
@@ -167,7 +192,7 @@ tr.register_multiple(UserInfo, search_function, ProductInfo)
   tool = tr['search_web']  # dict
   ```
 
-### Invoking a tool
+#### Invoking a tool
 
 - From a call expression:
 
@@ -183,7 +208,7 @@ tr.register_multiple(UserInfo, search_function, ProductInfo)
 
 > Important: The `tool-parse` library does not interact directly with LLM-specific APIs. It cannot make requests to any LLM directly. Its primary functions are generating schemas and invoking expressions or metadata generated from LLMs. This design provides developers with more flexibility to integrate or adapt various tools and libraries according to their project needs.
 
-### Combining two registries
+#### Combining two registries
 
 > Note: A single `ToolRegistry` instance can hold as many tools as you need. Creating a new `ToolRegistry` instance is beneficial only when you require a distinct set of tools. This approach is particularly effective when deploying agents to utilize tools designed for specific tasks.
 
