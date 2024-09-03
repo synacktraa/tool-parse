@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tool-parse"
-version = "0.1.0"
+version = "0.2.0"
 description = "Making LLM Tool-Calling Simpler."
 license = "The Unlicense (Unlicense)"
 authors = ["Harsh Verma <synacktra.work@gmail.com>"]

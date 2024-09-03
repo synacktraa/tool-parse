@@ -4,7 +4,7 @@
 
 <p align="center">
     <a href="https://badge.fury.io/py/tool-parse">
-        <img src="https://badge.fury.io/py/tool-parse.svg" alt="PyPI version">
+        <img src="https://badge.fury.io/py/tool-parse.svg" alt="tool-parse version">
     </a>
 </p>
 
@@ -27,6 +27,8 @@ pip install tool-parse
     `str`, `int`, `float`, `bool`, `set`, `list`, `dict`, `pathlib.Path`,
     `typing.Set`, `typing.List`, `typing.Dict`, `typing.NamedTuple`,
     `typing.TypedDict`, `pydantic.BaseModel`, `typing.Literal`, `enum.Enum`
+   - Supports optional parameters:
+    `typing.Optional[<type>]`/`t.Union[<type>, None]`/`<type> | None`
 
 4. **Lightweight and Flexible:**
    - Core package is lightweight

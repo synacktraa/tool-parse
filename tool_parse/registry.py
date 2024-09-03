@@ -50,7 +50,6 @@ class ToolRegistry:
         if (entry and entry['obj'] is not obj) and not self._override:
             raise RegisteredError(f"Tool with name {key!r} is already registered.")
             
-        
         self.__entries[key] = ts.Entry(
             name=key, description=description, obj=obj
         )
@@ -223,21 +222,21 @@ class ToolRegistry:
     ) -> t.Any:
         """
         Compile a tool from call metadata
-        
+
         :param name: Name of the tool
         :param arguments: Raw arguments derived from JSON object or JSON object itself.
         """
-    
+
     def compile(
-        self, 
-        __expression: t.Optional[str] = None, 
+        self,
+        __expression: t.Optional[str] = None,
         *,
         name: t.Optional[str] = None,
         arguments: t.Optional[str | t.Dict[str, t.Any]] = None,
-    ):  
+    ):
         if not __expression and not name:
-            raise ValueError("Either tool expression or name required.")
-        
+            raise ValueError("Either tool expression or name & arguments required.")
+
         if __expression:
             name, arguments = compile.parse_expression(__expression)
 

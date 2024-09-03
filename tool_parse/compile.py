@@ -4,6 +4,7 @@ import inspect
 import asyncio
 import typing as t
 from enum import Enum
+import types as pytypes
 from pathlib import Path
 
 from ._types import (
@@ -14,7 +15,7 @@ from ._types import (
     is_typeddict, 
     is_namedtuple,
     is_pydantic_model,
-    normalize_type,
+    resolve_annotation,
     _SUPPORTED_TYPE_MAP,
     _SUPPORTED_TYPES_REPR
 )
@@ -75,15 +76,20 @@ def compile_function_object(
     pos_args = arguments.pop("*args", [])
     p_args_len = len(pos_args)
     for idx, (key, param) in enumerate(inspect.signature(__fn).parameters.items()):
-        default, raw_value = param.default, None
+        is_default_none = True if param.default is None else False
+        default, raw_value = None if param.default is inspect._empty else param.default, None
         if idx+1 <= p_args_len:
             raw_value = pos_args[idx]
         else:
             raw_value = arguments.get(key)
-        if raw_value is None and default is inspect._empty:
+            
+        value, is_optional = compile_value(param.annotation, raw_value)
+        if value is None:
+            value = default
+
+        if not is_optional and value is None and not is_default_none:
             raise CompileError(f"{key!r} parameter is required for function {__fn.__name__!r}.")
-        
-        value = compile_value(param.annotation, default if raw_value is None else raw_value)
+
         if param.kind is inspect._ParameterKind.POSITIONAL_ONLY:
             args.append(value)
         else:
@@ -96,11 +102,15 @@ def compile_pydantic_object(
 ):
     name, fields = __model.__name__, {}
     for key, field in __model.model_fields.items():
-        if key not in arguments and field.is_required():
-            raise CompileError(
-                f"{name!r} model required field {key!r} missing."
-            )
-        fields[key] = compile_value(field.annotation, arguments.get(key, field.default))
+        default = field.default
+        is_default_none = True if default is None else False
+        value, is_optional = compile_value(field.annotation, arguments.get(key))
+        if value is None:
+            value = default
+        if not is_optional and value is None and not is_default_none:
+            raise CompileError(f"{name!r} model required field {key!r} missing.")
+
+        fields[key] = value
     return __model(**fields)
 
 def compile_typeddict_object(
@@ -108,11 +118,19 @@ def compile_typeddict_object(
 ):
     name, fields = __td.__name__, {}
     for key, annotation in t.get_type_hints(__td).items():
-        if key not in arguments and key not in __td.__dict__:
-            raise CompileError(
-                f"{name!r} TypedDict required field {key!r} missing."
-            )
-        fields[key] = compile_value(annotation, arguments.get(key, __td.__dict__.get(key)))
+        is_default_none = False
+        default = __td.__dict__.get(key)
+        if key in __td.__dict__ and default is None:
+            is_default_none = True
+
+        value, is_optional = compile_value(annotation, arguments.get(key))
+        if value is None:
+            value = default
+
+        if not is_optional and value is None and not is_default_none:
+            raise CompileError(f"{name!r} TypedDict required field {key!r} missing.")
+        
+        fields[key] = value
     return __td(**fields)
 
 def compile_namedtuple_object(
@@ -120,59 +138,75 @@ def compile_namedtuple_object(
 ):
     name, fields = __nt.__name__, {}
     for key, annotation in t.get_type_hints(__nt).items():
-        if key not in arguments:
-            raise CompileError(
-                f"{name!r} NamedTuple required field {key!r} missing."
-            )
-        fields[key] = compile_value(annotation, arguments.get(key))
+        is_default_none = False
+        default = __nt._field_defaults.get(key)
+        if key in __nt._field_defaults and default is None:
+            is_default_none = True
+
+        value, is_optional = compile_value(annotation, arguments.get(key))
+        if value is None:
+            value = default
+
+        if not is_optional and value is None and not is_default_none:
+            raise CompileError(f"{name!r} NamedTuple required field {key!r} missing.")
+        
+        fields[key] = value
     return __nt(**fields)
 
-def compile_value(__annotation: t.Type | t.ForwardRef, raw_value: t.Any):
+def compile_value(__annotation: t.Type | t.ForwardRef, raw_value: t.Any | None) -> tuple[t.Any | None, bool]:
     """
     Compile the raw value as instance of the given annotation.
     """
     rest_err = f"but received value of type {type(raw_value)!r} instead."
     
-    annot, args = normalize_type(__annotation)
+    annot, args, is_optional = resolve_annotation(__annotation)
+
+    if raw_value == None:
+        return None, is_optional
+
     if args:
         if annot is t.Literal:
-            arg_type = type(args[0])
+            arg_types = list({type(e) for e in args})
+            if len(arg_types) != 1:
+                CompileError("Literal args must be of same type.")
+
+            arg_type = arg_types[0]
             if not isinstance(raw_value, arg_type):
                 try:
                     raw_value = arg_type(raw_value)
                 except ValueError:
                     raise CompileError(
-                        f"Expected {arg_type.__name__} value for Literal parameter, {rest_err}" 
+                        f"Expected {getattr(arg_type, '__name__', arg_type)!r} value for Literal parameter, {rest_err}" 
                     )
             if raw_value not in args:
                 raise CompileError(
                     f"{raw_value!r} is not a valid literal. Valid literals: {args!r}"
                 )
-            return raw_value
+            return raw_value, is_optional
             
         if annot in (list, t.List):
             if not isinstance(raw_value, list):
                 raise CompileError(f"Expected list value, {rest_err}")
-            return [compile_value(args[0], e) for e in raw_value]
+            return [compile_value(args[0], e)[0] for e in raw_value], is_optional
                 
     if issubclass(annot, Path):
         if not isinstance(raw_value, str):
             raise CompileError(
                 f"Expected string value for `pathlib.Path` type, {rest_err}"
             )
-        return Path(raw_value)
+        return Path(raw_value), is_optional
     
     if issubclass(annot, Enum):
         if not isinstance(raw_value, str):
             raise CompileError(
-                f"Expected string value for {annot.__name__}, {rest_err}"
+                f"Expected string value for {getattr(annot, '__name__', annot)!r}, {rest_err}"
             )
         if (enum := annot._member_map_.get(raw_value)) is None:
             raise CompileError(
-                f"{raw_value!r} is not a valid {annot.__name__!r} member." 
+                f"{raw_value!r} is not a valid {getattr(annot, '__name__', annot)!r} member. " 
                 f"Valid members: {annot._member_names_!r}"
             )
-        return enum
+        return enum, is_optional
     
     if annot in _SUPPORTED_TYPE_MAP:
         if not isinstance(raw_value, annot):
@@ -180,9 +214,9 @@ def compile_value(__annotation: t.Type | t.ForwardRef, raw_value: t.Any):
                 return annot(raw_value)
             except ValueError:
                 raise CompileError(
-                    f"Expected parameter type {annot.__name__!r}, {rest_err}" 
+                    f"Expected value of type {getattr(annot, '__name__', annot)!r}, {rest_err}" 
                 )
-        return raw_value
+        return raw_value, is_optional
     
     compile_fn = None
     if is_pydantic_model(annot):
@@ -195,12 +229,12 @@ def compile_value(__annotation: t.Type | t.ForwardRef, raw_value: t.Any):
     if compile_fn is not None:  
         if not isinstance(raw_value, dict):
             raise CompileError(
-                f"Expected dictionary value for {annot.__name__}, {rest_err}"
+                f"Expected dictionary value for {getattr(annot, '__name__', annot)!r}, {rest_err}"
             )
-        return compile_fn(annot, raw_value)
+        return compile_fn(annot, raw_value), is_optional
     
     raise CompileError(
-        f"{annot.__name__!r} type is not supported.\nSupported types: {_SUPPORTED_TYPES_REPR}"
+        f"{getattr(annot, '__name__', annot)!r} type is not supported.\nSupported types: {_SUPPORTED_TYPES_REPR}"
     )
 
 def compile_object(__obj: t.Any, *, arguments: str | t.Dict[str, t.Any]):

@@ -1,6 +1,7 @@
 import inspect
 import typing as t
 from enum import Enum
+import types as pytypes
 from pathlib import Path
 from docstring_parser import parse_from_object, Docstring
 
@@ -12,7 +13,7 @@ from ._types import (
     is_typeddict, 
     is_namedtuple,
     is_pydantic_model,
-    normalize_type,
+    resolve_annotation,
     _SUPPORTED_TYPE_MAP,
     _SUPPORTED_TYPES_REPR
 )
@@ -52,14 +53,14 @@ def generate_function_metadata(
     __fn: t.Callable[..., t.Any], description_map: t.Dict[str, str]
 ):
     for label, param in inspect.signature(__fn).parameters.items():
-        schema = marshal_annotation(param.annotation)
+        schema, is_optional = marshal_annotation(param.annotation)
         if label in description_map:
             schema['description'] = description_map[label]
 
         yield ParamMetadata(
             label=label,
             schema=schema,
-            required=True if param.default is inspect._empty else False
+            required=True if not is_optional and param.default is inspect._empty else False
         )
 
 def generate_pydantic_metadata(
@@ -70,14 +71,14 @@ def generate_pydantic_metadata(
             raise MarshalError(
                 f"{label!r} field cannot have the same type as the Pydantic model {__model.__name__!r}."
             )
-        schema = marshal_annotation(field.annotation)
+        schema, is_optional = marshal_annotation(field.annotation)
         if description := field.description or description_map.get(label):
             schema['description'] = description
 
         yield ParamMetadata(
             label=label,
             schema=schema,
-            required=True if field.is_required() else False
+            required=True if not is_optional and field.is_required() else False
         )
 
 def generate_typeddict_metadata(
@@ -88,14 +89,14 @@ def generate_typeddict_metadata(
             raise MarshalError(
                 f"{label!r} field cannot have the same type as the TypeDict class {__td.__name__!r}."
             )
-        schema = marshal_annotation(annotation)
+        schema, is_optional = marshal_annotation(annotation)
         if label in description_map:
             schema['description'] = description_map[label]
 
         yield ParamMetadata(
             label=label, 
             schema=schema, 
-            required=False if label in __td.__dict__ else True
+            required=False if is_optional or label in __td.__dict__ else True
         )
 
 def generate_namedtuple_metadata(
@@ -106,46 +107,47 @@ def generate_namedtuple_metadata(
             raise MarshalError(
                 f"{label!r} field cannot have the same type as the NamedTuple class {__nt.__name__!r}."
             )
-        schema = marshal_annotation(annotation)
+        schema, is_optional = marshal_annotation(annotation)
         if label in description_map:
             schema['description'] = description_map[label]
 
         yield ParamMetadata(
             label=label, 
             schema=schema, 
-            required=False if label in __nt._field_defaults else True
+            required=False if is_optional or label in __nt._field_defaults else True
         )
 
-def marshal_annotation(__annotation: t.Type | t.ForwardRef) -> t.Dict[str, t.Any]:
+def marshal_annotation(__annotation: t.Type | t.ForwardRef) -> tuple[dict[str, t.Any], bool]:
     """
     Marshal the annotation to tool-calling specific property map
     """
 
-    annot, args = normalize_type(__annotation)
+    annot, args, is_optional = resolve_annotation(__annotation)
+
     if args:
         if annot in (list, t.List):
-            return {'type': 'array', 'items': marshal_annotation(args[0])}
+            return {'type': 'array', 'items': marshal_annotation(args[0])[0]}, is_optional
         if annot is t.Literal:
-            types = {type(e) for e in args}
-            if types == {str}:
-                return {'enum': args, 'type': 'string'}
-            elif types == {int}:
-                return {'enum': args, 'type': 'integer'}
-            elif types == {float}:
-                return {'enum': args, 'type': 'number'}
-            elif types == {bool}:
-                return {'enum': args, 'type': 'boolean'}
-            else:
-                MarshalError("Literal args must be of same type.")
-        
+            arg_types = list({type(e) for e in args})
+            if len(arg_types) != 1:
+                raise MarshalError("Literal args must be of same type.")
+
+            arg_type = arg_types[0]
+            print(f'{arg_type=}')
+            if arg_type not in (str, int, float, bool):
+                raise MarshalError(
+                    f"{getattr(arg_type, '__name__', arg_type)!r} type is not supported in typing.Literal."
+                )
+            return {'enum': args, 'type': _SUPPORTED_TYPE_MAP[arg_type]}, is_optional
+
     if issubclass(annot, Path):
-        return {'type': 'string'}
+        return {'type': 'string'}, is_optional
         
     if issubclass(annot, Enum):
-        return {'type': 'string', 'enum': annot._member_names_}
+        return {'type': 'string', 'enum': annot._member_names_}, is_optional
 
     if (p_type := _SUPPORTED_TYPE_MAP.get(annot)) is not None:
-        return {'type': p_type}
+        return {'type': p_type}, is_optional
     
     generate_fn = None
     if is_pydantic_model(annot):
@@ -161,8 +163,8 @@ def marshal_annotation(__annotation: t.Type | t.ForwardRef) -> t.Dict[str, t.Any
                 annot, 
                 map_param_to_description(parse_from_object(annot))
             )
-        )
-    raise MarshalError(f"{annot.__name__!r} type is not supported.\nSupported types: {_SUPPORTED_TYPES_REPR}")
+        ), is_optional
+    raise MarshalError(f"{getattr(annot, '__name__', annot)!r} type is not supported.\nSupported types: {_SUPPORTED_TYPES_REPR}")
 
 def marshal_object(
     __obj, 

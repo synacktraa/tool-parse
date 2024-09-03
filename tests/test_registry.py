@@ -34,6 +34,15 @@ def test_independent_tool():
         arguments='{"departure": "NYC", "arrival": "JFK"}'
     ) == "2 hours"
 
+    assert get_flight_times.compile(
+        "get_flight_times(departure='NYC', arrival='JFK')"
+    ) == "2 hours"
+
+    with pytest.raises(ValueError):
+        _ = get_flight_times.compile(
+            "get_flight_time(departure='NYC', arrival='JFK')"
+        ) 
+
 @pytest.fixture
 def registry():
     tr = ToolRegistry()
@@ -65,7 +74,7 @@ def registry():
 
     class HeroData(t.NamedTuple):
         name: str
-        powers: list[str]
+        powers: t.Optional[list[str]]
 
     tr['HeroData'] = HeroData
 
@@ -122,7 +131,7 @@ def test_registry_marshal_method(registry):
     assert tools[3]['type'] == "function"
     assert tools[3]['function']['name'] == "HeroData"
     assert tools[3]['function']['parameters']['type'] == "object"
-    assert tools[3]['function']['parameters']['required'] == ['name', 'powers']
+    assert tools[3]['function']['parameters']['required'] == ['name']
     assert tools[3]['function']['parameters']['properties']['name']['type'] == "string"
     assert tools[3]['function']['parameters']['properties']['powers']['type'] == "array"
     assert tools[3]['function']['parameters']['properties']['powers']['items']['type'] == "string"
@@ -153,10 +162,17 @@ def test_registry_compile_method(registry):
     assert UserInfo_2_output['name'] == 'Synacktra'
     assert UserInfo_2_output['role'] == 'tester'
 
-    HeroData_output = registry.compile(
+    HeroData_1_output = registry.compile(
         name="HeroData",
         arguments={'name': 'homelander', 'powers': ['bullying', 'laser beam']}
     )
-    assert HeroData_output.name == 'homelander'
-    assert HeroData_output.powers[0] == 'bullying'
-    assert HeroData_output.powers[1] == 'laser beam'
+    assert HeroData_1_output.name == 'homelander'
+    assert HeroData_1_output.powers[0] == 'bullying'
+    assert HeroData_1_output.powers[1] == 'laser beam'
+
+    HeroData_2_output = registry.compile(
+        name="HeroData",
+        arguments={'name': 'human'}
+    )
+    assert HeroData_2_output.name == 'human'
+    assert HeroData_2_output.powers == None

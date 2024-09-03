@@ -1,5 +1,6 @@
 import sys
 import typing as t
+import types as pytypes
 from enum import Enum
 from pathlib import Path
 from inspect import iscoroutinefunction
@@ -47,18 +48,33 @@ _SUPPORTED_TYPES_REPR = " | ".join(repr for repr in (get_type_repr(t) for t in _
 
 
 def has_orig_bases(__obj, __base: str):
-    if (
-        '__orig_bases__' in __obj.__dict__ and \
-        __obj.__orig_bases__[0].__name__ == __base
-    ):
+    if (bases := getattr(__obj, '__orig_bases__', None)) is None:
+        return False
+    if bases[0].__name__ == __base:
         return True
     return False
 
-def normalize_type(__annot: t.Type | t.ForwardRef) -> tuple[t.Type, list[t.Any]]:
+class Annotation(t.NamedTuple):
+    type: t.Type
+    args: list[t.Any]
+    is_optional: bool
+
+def resolve_annotation(__annot: t.Type | t.ForwardRef) -> tuple[t.Type, list[t.Any], bool]:
     if isinstance(__annot, t.ForwardRef):
         ns = getattr(__annot, "__globals__", None)
         __annot = __annot._evaluate(ns, ns, frozenset())
-    return t.get_origin(__annot) or __annot, list(t.get_args(__annot))
+
+    is_optional = False
+    _type, args = t.get_origin(__annot) or __annot, list(t.get_args(__annot))
+    if _type in (t.Union, pytypes.UnionType):
+        if len(args) != 2 or type(None) not in args:
+            raise TypeError(
+                "Only `typing.Optional[<type>]`, `typing.Union[<type>, None] and `<type> | None` union types are supported."
+            )
+        is_optional = True
+        _type, args, _ = resolve_annotation(args[1 if args.index(type(None)) == 0 else 0])
+
+    return Annotation(type=_type, args=args, is_optional=is_optional)
 
 def is_async(__fn: t.Callable[..., t.Any]) -> bool:
     """Returns true if the callable is async, accounting for wrapped callables"""
