@@ -1,21 +1,99 @@
 [tool.poetry]
-name = "tool-parse"
-version = "0.2.0"
+name = "tool_parse"
+version = "0.2.1"
 description = "Making LLM Tool-Calling Simpler."
-license = "The Unlicense (Unlicense)"
 authors = ["Harsh Verma <synacktra.work@gmail.com>"]
-readme = "readme.md"
-homepage = "https://github.com/synacktraa/tool-parse"
 repository = "https://github.com/synacktraa/tool-parse"
-keywords = ["tool-calling", "function-calling", "structured-tool", "LLM"]
+license = "MIT License"
+readme = "README.md"
+packages = [
+  {include = "tool_parse"}
+]
 
 [tool.poetry.dependencies]
 python = ">=3.8,<4.0"
-docstring-parser = "0.16"
+docstring-parser = ">=0.15"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.3.2"
+pytest = "^7.2.0"
+pytest-cov = "^4.0.0"
+deptry = "^0.16.2"
+mypy = "^1.5.1"
+pre-commit = "^3.4.0"
+tox = "^4.11.1"
+
+
 
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.mypy]
+files = ["tool_parse"]
+disallow_untyped_defs = "False"
+disallow_any_unimported = "False"
+no_implicit_optional = "True"
+check_untyped_defs = "True"
+warn_return_any = "True"
+warn_unused_ignores = "True"
+show_error_codes = "True"
+disable_error_code = ["arg-type", "no-any-return", "misc"]
+
+[tool.deptry]
+ignore = ["DEP001"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+fix = true
+lint.select = [
+    # flake8-2020
+    "YTT",
+    # flake8-bandit
+    "S",
+    # flake8-bugbear
+    "B",
+    # flake8-builtins
+    "A",
+    # flake8-comprehensions
+    "C4",
+    # flake8-debugger
+    "T10",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+    # mccabe
+    "C90",
+    # pycodestyle
+    "E", "W",
+    # pyflakes
+    "F",
+    # pygrep-hooks
+    "PGH",
+    # ruff
+    "RUF",
+]
+lint.ignore = [
+    # LineTooLong
+    "E501",
+    # DoNotAssignLambda
+    "E731",
+]
+
+[tool.ruff.format]
+preview = true
+
+[tool.coverage.report]
+skip_empty = true
+
+[tool.coverage.run]
+branch = true
+source = ["tool_parse"]
+
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]

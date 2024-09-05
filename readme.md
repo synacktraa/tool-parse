@@ -3,8 +3,17 @@
 ---
 
 <p align="center">
-    <a href="https://badge.fury.io/py/tool-parse">
-        <img src="https://badge.fury.io/py/tool-parse.svg" alt="tool-parse version">
+    <a href="https://img.shields.io/github/v/release/synacktraa/tool-parse">
+        <img src="https://img.shields.io/github/v/release/synacktraa/tool-parse" alt="tool-parse version">
+    </a>
+    <a href="https://img.shields.io/github/actions/workflow/status/synacktraa/tool-parse/master.yml?branch=master">
+        <img src="https://img.shields.io/github/actions/workflow/status/synacktraa/tool-parse/master.yml?branch=master" alt="tool-parse build status">
+    </a>
+    <a href="https://codecov.io/gh/synacktraa/tool-parse">
+        <img src="https://codecov.io/gh/synacktraa/tool-parse/branch/master/graph/badge.svg" alt="tool-parse codecov">
+    </a>
+    <a href="https://img.shields.io/github/license/synacktraa/tool-parse">
+        <img src="https://img.shields.io/github/license/synacktraa/tool-parse" alt="tool-parse license">
     </a>
 </p>
 
@@ -17,31 +26,33 @@ pip install tool-parse
 ## 🌟 Key Features
 
 1. **Flexible Tool Registration:**
+
    - Support for functions (synchronous and asynchronous)
    - Compatible with `pydantic.BaseModel`, `typing.TypedDict`, and `typing.NamedTuple`
    - Multiple registration methods: decorators, direct passing, and key-value pairs
    - Supports any docstring format recognized by the `docstring_parser` library
 
 2. **Extensive Parameter Type Support:**
-   - Handles a wide range of parameter types:
-    `str`, `int`, `float`, `bool`, `set`, `list`, `dict`, `pathlib.Path`,
-    `typing.Set`, `typing.List`, `typing.Dict`, `typing.NamedTuple`,
-    `typing.TypedDict`, `pydantic.BaseModel`, `typing.Literal`, `enum.Enum`
-   - Supports optional parameters:
-    `typing.Optional[<type>]`/`t.Union[<type>, None]`/`<type> | None`
 
-4. **Lightweight and Flexible:**
+   - Handles a wide range of parameter types:
+     `str`, `int`, `float`, `bool`, `set`, `list`, `dict`, `pathlib.Path`,
+     `typing.Set`, `typing.List`, `typing.Dict`, `typing.NamedTuple`,
+     `typing.TypedDict`, `pydantic.BaseModel`, `typing.Literal`, `enum.Enum`
+   - Supports optional parameters:
+     `typing.Optional[<type>]`/`t.Union[<type>, None]`/`<type> | None`
+
+3. **Lightweight and Flexible:**
+
    - Core package is lightweight
    - Optional dependencies (like `pydantic`) can be installed separately as needed
 
-5. **Schema Generation and Tool Invocation:**
+4. **Schema Generation and Tool Invocation:**
    - Generate schemas in 'base' and 'claude' formats
    - Easy tool invocation from call expressions or metadata
 
 ## Cookbooks
 
 - [GorillaLLM Integration](https://colab.research.google.com/drive/1C2WCgIZ7LnkpLt3KARL9ROh4iLwaACa6?usp=sharing)
-
 
 ## Usage 🤗
 
@@ -175,16 +186,19 @@ tr.register_multiple(UserInfo, search_function, ProductInfo)
 > `base` and `claude` formats are available. The default `base` format works with almost all providers.
 
 - As a list of dictionaries:
+
   ```python
   tools = tr.marshal('base')  # list[dict]
   ```
 
 - As a JSON string:
+
   ```python
   tools = tr.marshal(as_json=True)  # str
   ```
 
 - Saving as a JSON file:
+
   ```python
   tools = tr.marshal('claude', persist_at='/path/to/tools_schema.json')  # list[dict]
   ```
