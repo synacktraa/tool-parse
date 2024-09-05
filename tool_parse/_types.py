@@ -39,11 +39,12 @@ _SUPPORTED_TYPE_MAP = {
 
 
 def get_type_repr(_t: t.Optional[type]) -> str:
+    get_type_name = lambda _t: getattr(_t, "__name__", str(_t))
     if _t is None:
         return "`pydantic.BaseModel`"
     if _t.__module__ == "builtins":
-        return f"`{_t.__name__}`"
-    return f"`{_t.__module__.split('.')[0]}.{_t.__name__}`"
+        return f"`{get_type_name(_t)}`"
+    return f"`{_t.__module__.split('.')[0]}.{get_type_name(_t)}`"
 
 
 _SUPPORTED_TYPES_REPR = " | ".join(
