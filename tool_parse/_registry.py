@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import json
 import typing as t
 from pathlib import Path

@@ -1,7 +1,4 @@
-from __future__ import annotations
-
 import inspect
-import sys
 import types as pytypes
 import typing as t
 from enum import Enum
@@ -64,16 +61,9 @@ class Annotation(t.NamedTuple):
     is_optional: bool
 
 
-if sys.version_info >= (3, 9):
-
-    def eval_ref(ref: t.ForwardRef) -> type:
-        ns = getattr(ref, "__globals__", None)
-        return ref._evaluate(ns, ns, recursive_guard=frozenset())  # type: ignore[return-value]
-else:
-
-    def eval_ref(ref: t.ForwardRef) -> type:
-        ns = getattr(ref, "__globals__", None)
-        return ref._evaluate(ns, ns)
+def eval_ref(ref: t.ForwardRef) -> type:
+    ns = getattr(ref, "__globals__", None)
+    return ref._evaluate(ns, ns, recursive_guard=frozenset())  # type: ignore[return-value]
 
 
 def resolve_annotation(__annot: type | t.ForwardRef) -> Annotation:
@@ -93,14 +83,8 @@ def resolve_annotation(__annot: type | t.ForwardRef) -> Annotation:
     return Annotation(type=_type, args=args, is_optional=is_optional)
 
 
-if sys.version_info >= (3, 10):
-
-    def get_signature(__f: t.Any) -> inspect.Signature:
-        return inspect.signature(__f, eval_str=True)
-else:
-
-    def get_signature(__f: t.Any) -> inspect.Signature:
-        return inspect.signature(__f)
+def get_signature(__f: t.Any) -> inspect.Signature:
+    return inspect.signature(__f, eval_str=True)
 
 
 def is_async(__fn: t.Callable[..., t.Any]) -> bool:
@@ -126,12 +110,7 @@ def is_pydantic_model(__obj):
     if BaseModel is None:
         return False
 
-    is_class = isinstance(__obj, type)
-    if sys.version_info < (3, 10):
-        if len(t.get_args(__obj)) == 0:
-            return False
-        return is_class and issubclass(t.get_args(__obj)[0], BaseModel)
-    return is_class and issubclass(__obj, BaseModel)
+    return isinstance(__obj, type) and issubclass(__obj, BaseModel)
 
 
 # TypedDict-related definitions
