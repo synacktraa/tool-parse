@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import inspect
 import sys
 import types as pytypes
@@ -36,7 +38,7 @@ _SUPPORTED_TYPE_MAP = {
 """Supported types mapped property types"""
 
 
-def get_type_repr(_t: type | None) -> str:
+def get_type_repr(_t: t.Optional[type]) -> str:
     if _t is None:
         return "`pydantic.BaseModel`"
     if _t.__module__ == "builtins":
@@ -61,10 +63,21 @@ class Annotation(t.NamedTuple):
     is_optional: bool
 
 
+if sys.version_info >= (3, 9):
+
+    def eval_ref(ref: t.ForwardRef) -> type:
+        ns = getattr(ref, "__globals__", None)
+        return ref._evaluate(ns, ns, recursive_guard=frozenset())  # type: ignore[return-value]
+else:
+
+    def eval_ref(ref: t.ForwardRef) -> type:
+        ns = getattr(ref, "__globals__", None)
+        return ref._evaluate(ns, ns)
+
+
 def resolve_annotation(__annot: type | t.ForwardRef) -> Annotation:
     if isinstance(__annot, t.ForwardRef):
-        ns = getattr(__annot, "__globals__", None)
-        __annot = __annot._evaluate(ns, ns, frozenset())  # type: ignore[assignment]
+        __annot = eval_ref(__annot)
 
     is_optional = False
     _type, args = t.get_origin(__annot) or __annot, list(t.get_args(__annot))
@@ -76,7 +89,7 @@ def resolve_annotation(__annot: type | t.ForwardRef) -> Annotation:
         is_optional = True
         _type, args, _ = resolve_annotation(args[1 if args.index(type(None)) == 0 else 0])
 
-    return Annotation(type=_type, args=args, is_optional=is_optional)  # type: ignore[arg-type]
+    return Annotation(type=_type, args=args, is_optional=is_optional)
 
 
 if sys.version_info >= (3, 10):

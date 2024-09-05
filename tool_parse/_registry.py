@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import typing as t
 from pathlib import Path
@@ -57,13 +59,7 @@ class ToolRegistry:
 
         self.__entries[key] = ts.Entry(name=key, description=description, obj=obj)
 
-    def __setitem__(
-        self,
-        key: str,
-        value: t.Callable[P, R]
-        | t.Callable[P, t.Awaitable[R]]
-        | type[ts.PydanticModel | ts.TypedDict | ts.NamedTuple],
-    ) -> None:
+    def __setitem__(self, key: str, value: type) -> None:
         self.__register(obj=value, name=key)
 
     def __getitem__(self, key: str) -> ts.ToolSchema:
@@ -144,12 +140,7 @@ class ToolRegistry:
         else:
             return decorator(__obj)
 
-    def register_multiple(
-        self,
-        *__objs: t.Callable[P, R]
-        | t.Callable[P, t.Awaitable[R]]
-        | type[ts.PydanticModel | ts.TypedDict | ts.NamedTuple],
-    ):
+    def register_multiple(self, *__objs: type):
         """
         Register multiple objects at once. Overriding name and description is not available when using this method.
 
@@ -177,7 +168,7 @@ class ToolRegistry:
         *,
         as_json: bool = False,
         persist_at: t.Optional[str | Path] = None,
-    ) -> list[ts.ToolSchema] | str | None:
+    ) -> t.Optional[list[ts.ToolSchema] | str]:
         """
         Transform registered tools to schema format.
 

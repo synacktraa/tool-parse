@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import inspect
 import typing as t
 from enum import Enum
@@ -109,7 +111,7 @@ def generate_namedtuple_metadata(__nt: t.Type[NamedTuple], description_map: dict
         )
 
 
-def marshal_annotation(__annotation: t.Type | t.ForwardRef) -> tuple[dict[str, t.Any], bool]:  # noqa: C901
+def marshal_annotation(__annotation: type | t.ForwardRef) -> tuple[dict[str, t.Any], bool]:  # noqa: C901
     """
     Marshal the annotation to tool-calling specific property map
     """

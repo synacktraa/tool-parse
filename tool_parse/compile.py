@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import ast
 import asyncio
 import inspect
@@ -141,8 +143,8 @@ def compile_namedtuple_object(__nt: t.Type[NamedTuple], arguments: dict[str, t.A
 
 
 def compile_value(  # noqa: C901
-    __annotation: t.Type | t.ForwardRef, raw_value: t.Any | None
-) -> tuple[t.Any | None, bool]:
+    __annotation: type | t.ForwardRef, raw_value: t.Optional[t.Any]
+) -> tuple[t.Optional[t.Any], bool]:
     """
     Compile the raw value as instance of the given annotation.
     """
@@ -225,7 +227,7 @@ def compile_value(  # noqa: C901
     )
 
 
-def compile_object(__obj: t.Any, *, arguments: str | dict[str, t.Any]):
+def compile_object(__obj: t.Any, *, arguments: t.Optional[str | dict[str, t.Any]]):
     if isinstance(arguments, str):
         try:
             arguments: dict[str, t.Any] = json.loads(arguments)  # type: ignore[no-redef]
