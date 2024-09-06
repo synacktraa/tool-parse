@@ -1,6 +1,6 @@
 [tool.poetry]
-name = "tool_parse"
-version = "0.2.1"
+name = "tool-parse"
+version = "0.2.2"
 description = "Making LLM Tool-Calling Simpler."
 authors = ["Harsh Verma <synacktra.work@gmail.com>"]
 repository = "https://github.com/synacktraa/tool-parse"

@@ -31,10 +31,13 @@ def test_independent_tool():
         == "Arrival location code"
     )
 
+    # passing dictionary as arguments
     assert get_flight_times.compile(arguments={"departure": "NYC", "arrival": "JFK"}) == "2 hours"
 
+    # passing json as arguments
     assert get_flight_times.compile(arguments='{"departure": "NYC", "arrival": "JFK"}') == "2 hours"
 
+    # passing call expression
     assert get_flight_times.compile("get_flight_times(departure='NYC', arrival='JFK')") == "2 hours"
 
     with pytest.raises(ValueError):

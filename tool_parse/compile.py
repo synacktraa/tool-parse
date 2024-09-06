@@ -173,10 +173,10 @@ def compile_value(  # noqa: C901
                 )
             return raw_value, is_optional
 
-        if annot in (list, t.List):
+        if annot in (list, set, t.List, t.Set):
             if not isinstance(raw_value, list):
                 raise CompileError(f"Expected list value, {rest_err}")
-            return [compile_value(args[0], e)[0] for e in raw_value], is_optional
+            return annot(compile_value(args[0], e)[0] for e in raw_value), is_optional
 
     if issubclass(annot, Path):
         if not isinstance(raw_value, str):

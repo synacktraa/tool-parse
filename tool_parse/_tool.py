@@ -51,12 +51,12 @@ class tool:
         *,
         arguments: t.Optional[str | dict[str, t.Any]] = None,
     ):
-        if not __expression and not arguments:
-            raise ValueError("Either tool call expression or arguments required.")
-
         if __expression:
             name, arguments = compile.parse_expression(__expression)
             if name != self.name:
                 raise ValueError(f"Expected call expression for tool {self.name!r}")
+
+        if arguments is None:
+            raise ValueError("Either tool call expression or arguments required.")
 
         return compile.compile_object(self.__obj, arguments=arguments or {})

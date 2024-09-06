@@ -1,6 +1,6 @@
 .PHONY: install
 install: ## Install the poetry environment and install the pre-commit hooks
-	@echo "🚀 Creating virtual environment using pyenv and poetry"
+	@echo "🚀 Creating virtual environment using poetry"
 	@poetry install
 	@poetry run pre-commit install
 	@poetry shell
@@ -28,7 +28,7 @@ build: clean-build ## Build wheel file using poetry
 
 .PHONY: clean-build
 clean-build: ## clean build artifacts
-	@rm -rf dist
+	@python -c "import shutil; shutil.rmtree('dist', ignore_errors=True)"
 
 .PHONY: publish
 publish: ## publish a release to pypi.

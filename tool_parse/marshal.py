@@ -117,15 +117,14 @@ def marshal_annotation(__annotation: type | t.ForwardRef) -> tuple[dict[str, t.A
     annot, args, is_optional = resolve_annotation(__annotation)
 
     if args:
-        if annot in (list, t.List):
+        if annot in (list, set, t.List, t.Set):
             return {"type": "array", "items": marshal_annotation(args[0])[0]}, is_optional
         if annot is t.Literal:
             arg_types = list({type(e) for e in args})
             if len(arg_types) != 1:
                 raise MarshalError("Literal args must be of same type.")
 
-            arg_type = arg_types[0]
-            if arg_type not in (str, int, float, bool):
+            if (arg_type := arg_types[0]) not in (str, int, float, bool):
                 raise MarshalError(
                     f"{getattr(arg_type, '__name__', arg_type)!r} type is not supported in typing.Literal."
                 )

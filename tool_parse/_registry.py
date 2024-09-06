@@ -174,7 +174,7 @@ class ToolRegistry:
         :param as_json: If `True`, schema is returned as JSON object.
         :param persist_at: Path to `.json` file to persist schema.
         """
-        if not self:
+        if not self.__entries:
             return None
 
         schema = []
@@ -199,7 +199,7 @@ class ToolRegistry:
         """
 
     @t.overload
-    def compile(self, *, name: str, arguments: t.Optional[str | dict[str, t.Any]] = None) -> t.Any:
+    def compile(self, *, name: str, arguments: str | dict[str, t.Any]) -> t.Any:
         """
         Compile a tool from call metadata
 
@@ -214,11 +214,11 @@ class ToolRegistry:
         name: t.Optional[str] = None,
         arguments: t.Optional[str | dict[str, t.Any]] = None,
     ):
-        if not __expression and not name:
-            raise ValueError("Either tool expression or name & arguments required.")
-
         if __expression:
             name, arguments = compile.parse_expression(__expression)
+
+        if name is None and arguments is None:
+            raise ValueError("Either tool expression or name & arguments required.")
 
         if (entry := self.__entries.get(name)) is None:
             raise NotRegisteredError(f"{name!r} tool has not been registered")
