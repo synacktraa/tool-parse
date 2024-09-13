@@ -1,12 +1,16 @@
+import sys
 import typing as t
 from enum import Enum
 from pathlib import Path
 
 import pytest
 
-from tool_parse import ToolRegistry
-from tool_parse.compile import CompileError
-from tool_parse.marshal import MarshalError
+from tool_parse import ToolRegistry, exceptions
+
+if sys.version_info < (3, 10):
+    from typing_extensions import NamedTuple, TypedDict
+else:
+    from typing import NamedTuple, TypedDict
 
 
 # Basic registry fixture
@@ -34,19 +38,19 @@ def basic_registry():
     _ = tr.register(call_api, name="CallApi")
 
     @tr.register(name="user_info", description="Information of the user.")
-    class UserInfo(t.TypedDict):
+    class UserInfo(TypedDict):
         """User information"""
 
         name: str
         role: t.Literal["admin", "tester"] = "tester"
 
-    class HeroInfo(t.TypedDict):
+    class HeroInfo(TypedDict):
         name: str
         age: t.Optional[int] = None
 
-    class HeroData(t.NamedTuple):
+    class HeroData(NamedTuple):
         info: HeroInfo
-        powers: t.Optional[list[str]]
+        powers: t.Optional[t.List[str]]
 
     tr["HeroData"] = HeroData
 
@@ -63,10 +67,10 @@ def complex_registry():
         text: str,
         count: int,
         ratio: float,
-        is_valid: bool,
-        tags: set[str],
-        items: list[str],
-        metadata: dict[str, t.Any],
+        is_valid: t.Literal[True, False],
+        tags: t.Set[str],
+        items: t.List[str],
+        metadata: t.Dict[str, t.Any],
         file_path: Path,
         optional_param: t.Optional[int] = None,
     ) -> dict:
@@ -108,20 +112,18 @@ def complex_registry():
         """
         return f"{brightness} {color.value}"
 
-    class UserProfile(t.TypedDict):
+    @tr.register
+    class UserProfile(TypedDict):
         name: str
         age: int
-        hobbies: t.List[str]
+        hobbies: t.Set[str]
 
-    @tr.register
-    def create_user_profile(profile: UserProfile) -> str:
-        """
-        Create a user profile.
-        :param profile: The user profile data
-        """
-        return f"{profile['name']} ({profile['age']}) likes {', '.join(profile['hobbies'])}"
+    with pytest.raises(exceptions.RegistryException):
 
-    class BookInfo(t.NamedTuple):
+        @tr.register
+        class UserProfile(NamedTuple): ...
+
+    class BookInfo(NamedTuple):
         title: str
         author: str
         year: int
@@ -173,6 +175,11 @@ def test_basic_registry_compile(basic_registry):
     user_info = basic_registry.compile(name="user_info", arguments={"name": "Alice"})
     assert user_info == {"name": "Alice", "role": "tester"}
 
+    with pytest.raises(exceptions.RegistryException):
+        _ = basic_registry.compile(
+            name="get_flight_time", arguments={"departure": "NYC", "arrival": "JFK"}
+        )
+
 
 # Tests for complex registry
 def test_complex_registry_process_data(complex_registry):
@@ -180,7 +187,7 @@ def test_complex_registry_process_data(complex_registry):
         name="process_data",
         arguments={
             "text": "Hello, World!",
-            "count": 5,
+            "count": "5",
             "ratio": 3.14159,
             "is_valid": True,
             "tags": ["python", "testing", "testing"],
@@ -203,12 +210,12 @@ def test_complex_registry_enum_and_literal(complex_registry):
     )
     assert result == "light red"
 
-    with pytest.raises(CompileError):
+    with pytest.raises(exceptions.InvalidArgumentException):
         complex_registry.compile(
             name="color_brightness", arguments={"color": "YELLOW", "brightness": "light"}
         )
 
-    with pytest.raises(CompileError):
+    with pytest.raises(exceptions.InvalidArgumentException):
         complex_registry.compile(
             name="color_brightness", arguments={"color": "RED", "brightness": "medium"}
         )
@@ -216,17 +223,14 @@ def test_complex_registry_enum_and_literal(complex_registry):
 
 def test_complex_registry_typed_dict(complex_registry):
     result = complex_registry.compile(
-        name="create_user_profile",
-        arguments={
-            "profile": {"name": "Alice", "age": 30, "hobbies": ["reading", "hiking", "photography"]}
-        },
+        name="UserProfile",
+        arguments={"name": "Alice", "age": "30", "hobbies": ["reading", "hiking", "reading"]},
     )
-    assert result == "Alice (30) likes reading, hiking, photography"
+    assert result == {"name": "Alice", "age": 30, "hobbies": {"reading", "hiking"}}
 
-    with pytest.raises(CompileError):
+    with pytest.raises(exceptions.RequiredParameterException):
         complex_registry.compile(
-            name="create_user_profile",
-            arguments={"profile": {"name": "Bob", "hobbies": ["coding"]}},
+            name="UserProfile", arguments={"name": "Bob", "hobbies": ["coding"]}
         )
 
 
@@ -247,7 +251,7 @@ def test_marshal_error_unsupported_type():
         """Process byte data"""
         return data.decode()
 
-    with pytest.raises(MarshalError):
+    with pytest.raises(exceptions.UnsupportedTypeException):
         _ = tr.marshal("base")
 
 
@@ -259,7 +263,7 @@ def test_marshal_error_complex_unsupported_type():
         """Process complex data with unsupported type"""
         return str(len(data))
 
-    with pytest.raises(MarshalError):
+    with pytest.raises(exceptions.UnsupportedTypeException):
         _ = tr.marshal("base")
 
 

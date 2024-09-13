@@ -1,23 +1,14 @@
+from __future__ import annotations
+
 import json
+import sys
 import typing as t
 from pathlib import Path
 
 from . import _types as ts
-from . import compile, marshal
+from . import compile, exceptions, marshal
 
-__all__ = ("ToolRegistry", "RegisteredError", "NotRegisteredError")
-
-
-class RegisteredError(Exception):
-    pass
-
-
-class NotRegisteredError(Exception):
-    pass
-
-
-P = t.ParamSpec("P")
-R = t.TypeVar("R")
+__all__ = ("ToolRegistry",)
 
 
 class ToolRegistry:
@@ -53,7 +44,7 @@ class ToolRegistry:
         key = name or obj.__name__
         entry = self.__entries.get(key)
         if (entry and entry["obj"] is not obj) and not self._override:
-            raise RegisteredError(f"Tool with name {key!r} is already registered.")
+            raise exceptions.RegistryException(name=key, registered=True)
 
         self.__entries[key] = ts.Entry(name=key, description=description, obj=obj)
 
@@ -63,7 +54,11 @@ class ToolRegistry:
     def __getitem__(self, key: str) -> ts.ToolSchema:
         entry = self.__entries[key]
         return marshal.marshal_object(
-            entry["obj"], spec=self.spec, name=entry["name"], description=entry["description"]
+            entry["obj"],
+            spec=self.spec,
+            name=entry["name"],
+            description=entry["description"],
+            frame=sys._getframe(1),
         )
 
     def __add__(self, other: "ToolRegistry"):
@@ -72,7 +67,6 @@ class ToolRegistry:
         new_registry.__entries = {**self.__entries, **other.__entries}
         return new_registry
 
-    # TypedDict parameter overloading
     @t.overload
     def register(
         self,
@@ -80,9 +74,9 @@ class ToolRegistry:
         *,
         name: t.Optional[str] = None,
         description: t.Optional[str] = None,
-    ) -> type[ts.TypedDict]: ...
+    ) -> type[ts.TypedDict]:
+        """Register a `TypedDict` class"""
 
-    # NamedTuple parameter overloading
     @t.overload
     def register(
         self,
@@ -90,9 +84,9 @@ class ToolRegistry:
         *,
         name: t.Optional[str] = None,
         description: t.Optional[str] = None,
-    ) -> type[ts.NamedTuple]: ...
+    ) -> type[ts.NamedTuple]:
+        """Register a `NamedTuple` class"""
 
-    # Pydantic parameter overloading
     @t.overload
     def register(
         self,
@@ -100,36 +94,37 @@ class ToolRegistry:
         *,
         name: t.Optional[str] = None,
         description: t.Optional[str] = None,
-    ) -> type[ts.PydanticModel]: ...
+    ) -> type[ts.PydanticModel]:
+        """Register a `Pydantic` model"""
 
-    # Async-function parameter overloading
     @t.overload
     def register(
         self,
-        __obj: t.Optional[t.Callable[P, t.Awaitable[R]]] = None,
+        __obj: t.Optional[ts.AsyncFunction] = None,
         *,
         name: t.Optional[str] = None,
         description: t.Optional[str] = None,
-    ) -> t.Callable[P, t.Awaitable[R]]: ...
+    ) -> ts.AsyncFunction:
+        """Register an async function."""
 
-    # Function parameter overloading
     @t.overload
     def register(
         self,
-        __obj: t.Optional[t.Callable[P, R]] = None,
+        __obj: t.Optional[ts.Function] = None,
         *,
         name: t.Optional[str] = None,
         description: t.Optional[str] = None,
-    ) -> t.Callable[P, R]: ...
+    ) -> ts.Function:
+        """Register a function."""
 
     def register(
         self,
-        __obj: t.Optional[type[t.Any]] = None,
+        __obj: t.Optional[t.Any] = None,
         *,
         name: t.Optional[str] = None,
         description: t.Optional[str] = None,
     ):
-        def decorator(obj: type[t.Any]) -> type[t.Any]:
+        def decorator(obj: t.Any):
             self.__register(obj=obj, name=name, description=description)
             return obj
 
@@ -138,7 +133,12 @@ class ToolRegistry:
         else:
             return decorator(__obj)
 
-    def register_multiple(self, *__objs: type):
+    def register_multiple(
+        self,
+        *__objs: type[ts.TypedDict | ts.NamedTuple | ts.PydanticModel]
+        | ts.AsyncFunction
+        | ts.Function,
+    ):
         """
         Register multiple objects at once. Overriding name and description is not available when using this method.
 
@@ -181,7 +181,11 @@ class ToolRegistry:
         for entry in self.__entries.values():
             schema.append(
                 marshal.marshal_object(
-                    entry["obj"], spec=__spec, name=entry["name"], description=entry["description"]
+                    entry["obj"],
+                    spec=__spec,
+                    name=entry["name"],
+                    description=entry["description"],
+                    frame=sys._getframe(1),
                 )
             )
 
@@ -221,6 +225,8 @@ class ToolRegistry:
             raise ValueError("Either tool expression or name & arguments required.")
 
         if (entry := self.__entries.get(name)) is None:
-            raise NotRegisteredError(f"{name!r} tool has not been registered")
+            raise exceptions.RegistryException(name=name, registered=False)
 
-        return compile.compile_object(entry["obj"], arguments=arguments or {})
+        return compile.compile_object(
+            entry["obj"], arguments=arguments or {}, frame=sys._getframe(1)
+        )
