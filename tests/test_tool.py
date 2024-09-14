@@ -16,6 +16,7 @@ def test_independent_tool():
 
         departure: str
         arrival: str
+        status: bool = False
 
     assert _types.is_pydantic_model(Metadata) is True
 
@@ -75,12 +76,18 @@ def test_independent_tool():
     with pytest.raises(exceptions.RequiredParameterException):
         _ = get_flight_times.compile('get_flight_times(metadata={"departure": "NYC"})')
 
+    with pytest.raises(exceptions.TypeMismatchException):
+        _ = get_flight_times.compile(
+            arguments={"metadata": {"departure": "NYC", "arrival": "NYC", "status": 1}}
+        )
+
 
 def test_recursive_parameter_exception():
     @tool
     class Model(t.NamedTuple):
         """
         Model.
+
         :param models: set of models
         """
 

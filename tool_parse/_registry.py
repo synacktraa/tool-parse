@@ -128,10 +128,7 @@ class ToolRegistry:
             self.__register(obj=obj, name=name, description=description)
             return obj
 
-        if __obj is None:
-            return decorator
-        else:
-            return decorator(__obj)
+        return decorator if __obj is None else decorator(__obj)
 
     def register_multiple(
         self,

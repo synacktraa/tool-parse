@@ -23,14 +23,26 @@
 pip install tool-parse
 ```
 
+- with `pydantic` support
+  ```sh
+  pip install "tool-parse[pydantic]"
+  ```
+
 ## 🌟 Key Features
 
-1. **Flexible Tool Registration:**
+1. **Versatile Tool Management:**
 
-   - Support for functions (synchronous and asynchronous)
+   - Support for functions (both synchronous and asynchronous)
    - Compatible with `pydantic.BaseModel`, `typing.TypedDict`, and `typing.NamedTuple`
-   - Multiple registration methods: decorators, direct passing, and key-value pairs
    - Supports any docstring format recognized by the `docstring_parser` library
+   - `@tool` decorator for creating independent, standalone tools
+   - `ToolRegistry` class for managing multiple tools
+     - Multiple registration methods:
+       - Decorators (`@tr.register`)
+       - Direct passing (`tr.register(func)`)
+       - Key-value pairs (`tr[key] = func`)
+       - Bulk registration (`register_multiple`)
+     - Customizable tool naming and description
 
 2. **Extensive Parameter Type Support:**
 
@@ -39,16 +51,25 @@ pip install tool-parse
      `typing.Set`, `typing.List`, `typing.Dict`, `typing.NamedTuple`,
      `typing.TypedDict`, `pydantic.BaseModel`, `typing.Literal`, `enum.Enum`
    - Supports optional parameters:
-     `typing.Optional[<type>]`/`t.Union[<type>, None]`/`<type> | None`
+     `typing.Optional[<type>]`, `typing.Union[<type>, None]`, `<type> | None`
+   - Handles forward references and complex nested types
 
-3. **Lightweight and Flexible:**
+3. **Robust Schema Generation:**
 
-   - Core package is lightweight
-   - Optional dependencies (like `pydantic`) can be installed separately as needed
+   - Generates schemas in both 'base' and 'claude' formats
+   - Extracts and includes parameter descriptions from docstrings
+   - Handles recursive type definitions gracefully
 
-4. **Schema Generation and Tool Invocation:**
-   - Generate schemas in 'base' and 'claude' formats
-   - Easy tool invocation from call expressions or metadata
+4. **Flexible Tool Invocation:**
+
+   - Supports tool invocation from call expressions or metadata
+   - Handles argument parsing and type conversion
+   - Manages both positional and keyword arguments
+
+5. **Error Handling and Validation:**
+   - Comprehensive error checking for type mismatches, invalid arguments, and unsupported types
+   - Validates enum and literal values against allowed options
+   - Handles recursive parameter exceptions
 
 ## Cookbooks
 
@@ -60,14 +81,16 @@ pip install tool-parse
 
 ```python
 from tool_parse import tool
+from typing import Optional
 
 @tool
-def search_web(query: str, max_results: int = 10):
+def search_web(query: str, max_results: Optional[int]):
     """
     Search the web for given query
     :param query: The search query string
     :param max_results: Maximum number of results to return
     """
+    print(f"{query=}, {max_results=}")
     ...
 
 # Get tool schema

@@ -35,7 +35,7 @@ class tool:
         self._obj = __obj
         self.name = __obj.__name__
 
-    def __call__(self, *args, **kwargs) -> t.Any:
+    def __call__(self, *args, **kwargs):
         """Call the tool object. Sorry can't figure out how to add parameter type hints."""
         return self._obj(*args, **kwargs)
 

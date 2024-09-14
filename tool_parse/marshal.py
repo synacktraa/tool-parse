@@ -174,7 +174,18 @@ def generate_namedtuple_metadata(
     )
 
 
-def marshal_annotation(  # noqa: C901
+def _get_param_generator(__obj: t.Any, check_fn: bool = False):
+    if ts.is_pydantic_model(__obj):
+        return generate_pydantic_metadata
+    elif ts.is_typeddict(__obj):
+        return generate_typeddict_metadata
+    elif ts.is_namedtuple(__obj):
+        return generate_namedtuple_metadata
+    elif inspect.isfunction(__obj) and check_fn:
+        return generate_function_metadata
+
+
+def marshal_annotation(
     __info: ts.AnnotationInfo, namespace: ts.NameSpace
 ) -> t.Tuple[t.Dict[str, t.Any], bool]:
     """
@@ -210,16 +221,7 @@ def marshal_annotation(  # noqa: C901
     if (tvalue := ts._SUPPORTED_TYPE_MAP.get(_type)) is not None:
         return {"type": tvalue}, is_optional
 
-    if ts.is_pydantic_model(_type):
-        generate_fn = generate_pydantic_metadata
-    elif ts.is_typeddict(_type):
-        generate_fn = generate_typeddict_metadata
-    elif ts.is_namedtuple(_type):
-        generate_fn = generate_namedtuple_metadata
-    else:
-        generate_fn = None
-
-    if generate_fn is not None:
+    if (generate_fn := _get_param_generator(_type)) is not None:
         desc_map = map_param_to_description(parse_from_object(_type))
         return marshal_parameters(generate_fn(_type, desc_map, namespace)), is_optional
 
@@ -247,18 +249,8 @@ def marshal_object(
 
     :raises ValueError: If the object type is not supported for schema generation
     """
-    if ts.is_pydantic_model(__obj):
-        generate_fn = generate_pydantic_metadata
-    elif ts.is_typeddict(__obj):
-        generate_fn = generate_typeddict_metadata
-    elif ts.is_namedtuple(__obj):
-        generate_fn = generate_namedtuple_metadata
-    elif inspect.isfunction(__obj):
-        generate_fn = generate_function_metadata
-    else:
-        raise ValueError(
-            f"Schema generation failed, given object is not supported.\n{getattr(__obj, '__dict__', None)}"
-        )
+    if (generate_fn := _get_param_generator(__obj, check_fn=True)) is None:
+        raise ValueError("Schema generation failed, given object is not supported.")
 
     fn_schema = {"name": name or __obj.__name__}
     ds = parse_from_object(__obj)

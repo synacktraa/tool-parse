@@ -292,9 +292,8 @@ def is_typeddict(__obj):
     return (
         isinstance(__obj, type)
         and issubclass(__obj, dict)
-        and hasattr(__obj, "__total__")
-        and hasattr(__obj, "__annotations__")
-        and isinstance(__obj.__annotations__, dict)
+        and isinstance(getattr(__obj, "__total__", None), bool)
+        and isinstance(getattr(__obj, "__annotations__", None), dict)
     )
 
 
@@ -326,13 +325,10 @@ def is_namedtuple(__obj):
     return (
         isinstance(__obj, type)
         and issubclass(__obj, tuple)
-        and hasattr(__obj, "_fields")
-        and hasattr(__obj, "_field_defaults")
-        and hasattr(__obj, "__annotations__")
-        and isinstance(__obj._fields, tuple)
+        and isinstance(getattr(__obj, "_fields", None), tuple)
+        and isinstance(getattr(__obj, "_field_defaults", None), dict)
+        and isinstance(getattr(__obj, "__annotations__", None), dict)
         and all(isinstance(f, str) for f in __obj._fields)
-        and isinstance(__obj._field_defaults, dict)
-        and isinstance(__obj.__annotations__, dict)
     )
 
 

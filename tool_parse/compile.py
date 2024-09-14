@@ -110,7 +110,7 @@ def compile_function_object(
 
 def compile_pydantic_object(
     __model: type[ts.PydanticModel], arguments: t.Dict[str, t.Any], namespace: ts.NameSpace
-):
+) -> ts.PydanticModel:
     """
     Compile a Pydantic model object with the given arguments.
 
@@ -158,7 +158,7 @@ def _compile_typed_object(
     :param get_default: Function to get the default value of a field.
     :param type_base: The base type of the object.
 
-        :raises exceptions.RequiredParameterException: If a required field is missing
+    :raises exceptions.RequiredParameterException: If a required field is missing
     """
     name, fields = __typed_obj.__name__, {}
     for label, annotation in __typed_obj.__annotations__.items():
@@ -181,7 +181,7 @@ def _compile_typed_object(
 
 def compile_typeddict_object(
     __td: type[ts.TypedDict], arguments: t.Dict[str, t.Any], namespace: ts.NameSpace
-):
+) -> ts.TypedDict:
     """
     Compile a TypedDict object with the given arguments.
 
@@ -201,7 +201,7 @@ def compile_typeddict_object(
 
 def compile_namedtuple_object(
     __nt: type[ts.NamedTuple], arguments: t.Dict[str, t.Any], namespace: ts.NameSpace
-):
+) -> ts.NamedTuple:
     """
     Compile a NamedTuple object with the given arguments.
 
@@ -217,6 +217,17 @@ def compile_namedtuple_object(
         get_default=lambda key: __nt._field_defaults.get(key),
         type_base="NamedTuple",
     )
+
+
+def _get_obj_compiler(__obj: t.Any, check_fn: bool = False):
+    if ts.is_pydantic_model(__obj):
+        return compile_pydantic_object
+    elif ts.is_typeddict(__obj):
+        return compile_typeddict_object
+    elif ts.is_namedtuple(__obj):
+        return compile_namedtuple_object
+    elif inspect.isfunction(__obj) and check_fn:
+        return compile_function_object
 
 
 def compile_value(  # noqa: C901
@@ -288,16 +299,7 @@ def compile_value(  # noqa: C901
         validate(_type, t_type_repr=None)
         return raw_value, is_optional
 
-    if ts.is_pydantic_model(_type):
-        compile_fn = compile_pydantic_object
-    elif ts.is_typeddict(_type):
-        compile_fn = compile_typeddict_object
-    elif ts.is_namedtuple(_type):
-        compile_fn = compile_namedtuple_object
-    else:
-        compile_fn = None
-
-    if compile_fn is not None:
+    if (compile_fn := _get_obj_compiler(_type)) is not None:
         validate(dict)
         return compile_fn(_type, raw_value, namespace), is_optional
 
@@ -324,15 +326,7 @@ def compile_object(
         except json.JSONDecodeError as err:
             raise ValueError("arguments is not a valid JSON object") from err
 
-    if ts.is_pydantic_model(__obj):
-        compile_fn = compile_pydantic_object
-    elif ts.is_typeddict(__obj):
-        compile_fn = compile_typeddict_object
-    elif ts.is_namedtuple(__obj):
-        compile_fn = compile_namedtuple_object
-    elif inspect.isfunction(__obj):
-        compile_fn = compile_function_object
-    else:
+    if (compile_fn := _get_obj_compiler(__obj, check_fn=True)) is None:
         raise ValueError("Tool invocation failed, given object is not supported")
 
     return compile_fn(__obj, arguments, ts.extract_namespace(frame))
