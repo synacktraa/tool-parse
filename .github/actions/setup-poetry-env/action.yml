@@ -18,11 +18,21 @@ runs:
     - name: Install Poetry
       env:
         POETRY_VERSION: "1.7.1"
-      run: curl -sSL https://install.python-poetry.org | python - -y
+      run: |
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          (Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | python -
+        else
+          curl -sSL https://install.python-poetry.org | python3 -
+        fi
       shell: bash
 
     - name: Add Poetry to Path
-      run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+      run: |
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          echo "$APPDATA\Python\Scripts" >> $GITHUB_PATH
+        else
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+        fi
       shell: bash
 
     - name: Configure Poetry virtual environment in project
