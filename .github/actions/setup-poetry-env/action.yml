@@ -10,29 +10,33 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Set up python
+    - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: ${{ inputs.python-version }}
 
-    - name: Install Poetry
+    - name: Install Poetry on Windows
+      if: runner.os == 'Windows'
       env:
         POETRY_VERSION: "1.7.1"
-      run: |
-        if [ "$RUNNER_OS" == "Windows" ]; then
-          (Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | python -
-        else
-          curl -sSL https://install.python-poetry.org | python3 -
-        fi
+      run: (Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | python - -y
+      shell: pwsh
+
+    - name: Install Poetry on Linux/macOS
+      if: runner.os != 'Windows'
+      env:
+        POETRY_VERSION: "1.7.1"
+      run: curl -sSL https://install.python-poetry.org | python - -y
       shell: bash
 
-    - name: Add Poetry to Path
-      run: |
-        if [ "$RUNNER_OS" == "Windows" ]; then
-          echo "$APPDATA\Python\Scripts" >> $GITHUB_PATH
-        else
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-        fi
+    - name: Add Poetry to Path on Windows
+      if: runner.os == 'Windows'
+      run: echo "$env:APPDATA\Python\Scripts" | Out-File -Append -FilePath $env:GITHUB_PATH -Encoding utf8
+      shell: pwsh
+
+    - name: Add Poetry to Path on Linux/macOS
+      if: runner.os != 'Windows'
+      run: echo "$HOME/.local/bin" >> $GITHUB_PATH
       shell: bash
 
     - name: Configure Poetry virtual environment in project
@@ -46,6 +50,12 @@ runs:
         path: .venv
         key: venv-${{ runner.os }}-${{ inputs.python-version }}-${{ hashFiles('poetry.lock') }}
 
-    - name: Install dependencies
+    - name: Install dependencies on Windows
+      if: runner.os == 'Windows'
+      run: poetry install -E pydantic --no-interaction
+      shell: pwsh
+
+    - name: Install dependencies on Linux/macOS
+      if: runner.os != 'Windows'
       run: poetry install -E pydantic --no-interaction
       shell: bash
