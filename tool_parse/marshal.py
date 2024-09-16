@@ -14,6 +14,24 @@ from . import exceptions
 __all__ = "marshal_annotation", "marshal_object"
 
 
+def build_tool_description(docstring: Docstring):
+    """
+    Build description from docstring.
+
+    :param docstring: A Docstring object.
+    """
+
+    ret = []
+    if docstring.short_description:
+        ret.append(docstring.short_description)
+        if docstring.blank_after_short_description:
+            ret.append("")
+    if docstring.long_description:
+        ret.append(docstring.long_description)
+
+    return "\n".join(ret) if ret else None
+
+
 def map_param_to_description(docstring: Docstring) -> t.Dict[str, str]:
     """
     Map parameters to their descriptions from a docstring.
@@ -254,7 +272,7 @@ def marshal_object(
 
     fn_schema = {"name": name or __obj.__name__}
     ds = parse_from_object(__obj)
-    if desc := description or ds.description:
+    if desc := description or build_tool_description(ds):
         fn_schema["description"] = desc
 
     param_key = "input_schema" if spec == "claude" else "parameters"
