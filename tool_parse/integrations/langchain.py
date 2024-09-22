@@ -46,9 +46,9 @@ from ..marshal import marshal_object
 
 
 class ExtendedStructuredTool(BaseTool):
-    name: str | None = None
+    name: t.Optional[str] = None
     """The unique name of the tool that clearly communicates its purpose."""
-    description: str | None = None
+    description: t.Optional[str] = None
     """Used to tell the model how/when/why to use the tool."""
     func: type[ts.TypedDict | ts.NamedTuple | ts.PydanticModel] | ts.AsyncFunction | ts.Function
     """

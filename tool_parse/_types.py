@@ -225,6 +225,7 @@ if sys.version_info >= (3, 10):
         Get the signature of a function.
 
         :param __f: The function to get the signature for.
+        :param namespace: Global and local nampespace for evaluating annotation.
         """
         return inspect.signature(
             __f, globals=namespace.globals, locals=namespace.locals, eval_str=True
@@ -236,8 +237,9 @@ else:
         Get the signature of a function.
 
         :param __f: The function to get the signature for.
+        :param namespace: Global and local nampespace for evaluating annotation.
         """
-        return inspect.signature(__f, globals=namespace.globals, locals=namespace.locals)
+        return inspect.signature(__f)
 
 
 def is_async(__fn) -> bool:
