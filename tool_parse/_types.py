@@ -72,6 +72,11 @@ def check_subclass(__obj: t.Any, cls: t.Any):
     return isinstance(__obj, type) and isinstance(cls, type) and issubclass(__obj, cls)
 
 
+def fake_subclass_hook(cls, subcls):
+    """Fake subclass check to pass pydantic's validation error"""
+    return inspect.isclass(cls)
+
+
 class NameSpace(t.NamedTuple):
     globals: t.Dict[str, t.Any] | None
     locals: t.Dict[str, t.Any] | None
@@ -215,22 +220,24 @@ AsyncFunction = t.TypeVar("AsyncFunction", bound=t.Callable[..., t.Coroutine[t.A
 
 if sys.version_info >= (3, 10):
 
-    def get_signature(__f: Function | AsyncFunction):
+    def get_signature(__f: Function | AsyncFunction, *, namespace: NameSpace):
         """
         Get the signature of a function.
 
         :param __f: The function to get the signature for.
         """
-        return inspect.signature(__f, eval_str=True)
+        return inspect.signature(
+            __f, globals=namespace.globals, locals=namespace.locals, eval_str=True
+        )
 else:
 
-    def get_signature(__f: Function | AsyncFunction):
+    def get_signature(__f: Function | AsyncFunction, *, namespace: NameSpace):
         """
         Get the signature of a function.
 
         :param __f: The function to get the signature for.
         """
-        return inspect.signature(__f)
+        return inspect.signature(__f, globals=namespace.globals, locals=namespace.locals)
 
 
 def is_async(__fn) -> bool:
@@ -273,6 +280,8 @@ class TypedDictProtocol(t.Protocol):
         __required_keys__: t.ClassVar[t.FrozenSet[str]]
         __optional_keys__: t.ClassVar[t.FrozenSet[str]]
 
+    __subclasshook__ = classmethod(fake_subclass_hook)
+
 
 TypedDict = t.TypeVar("TypedDict", bound=TypedDictProtocol)
 """
@@ -305,6 +314,8 @@ class NamedTupleProtocol(t.Protocol[NTKeys]):
     _fields: t.ClassVar[NTKeys]
     _field_defaults: t.ClassVar[t.Dict[str, t.Any]]
     __annotations__: t.Dict[str, type]
+
+    __subclasshook__ = classmethod(fake_subclass_hook)
 
 
 NamedTuple = t.TypeVar("NamedTuple", bound=NamedTupleProtocol)

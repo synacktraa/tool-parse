@@ -52,10 +52,10 @@ runs:
 
     - name: Install dependencies on Windows
       if: runner.os == 'Windows'
-      run: poetry install -E pydantic --no-interaction
+      run: poetry install -E langchain --no-interaction
       shell: pwsh
 
     - name: Install dependencies on Linux/macOS
       if: runner.os != 'Windows'
-      run: poetry install -E pydantic --no-interaction
+      run: poetry install -E langchain --no-interaction
       shell: bash

@@ -85,7 +85,9 @@ def compile_function_object(
     args, kwargs = [], {}
     pos_args = arguments.pop("*args", [])
     p_args_len = len(pos_args)
-    for idx, (key, param) in enumerate(ts.get_signature(__fn).parameters.items()):
+    for idx, (key, param) in enumerate(
+        ts.get_signature(__fn, namespace=namespace).parameters.items()
+    ):
         is_default_none = param.default is None
         default = None if param.default is inspect._empty else param.default
         raw_value = pos_args[idx] if idx + 1 <= p_args_len else arguments.get(key)

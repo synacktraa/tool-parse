@@ -79,7 +79,7 @@ def generate_function_metadata(
     :param description_map: A dictionary mapping parameter names to descriptions.
     :param namespace: Global and local nampespace for evaluating annotation.
     """
-    for label, param in ts.get_signature(__fn).parameters.items():
+    for label, param in ts.get_signature(__fn, namespace=namespace).parameters.items():
         annot_info = ts.extract_annotation_info(param.annotation, namespace=namespace)
         schema, is_optional = marshal_annotation(annot_info, namespace)
         if label in description_map:

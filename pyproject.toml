@@ -14,9 +14,11 @@ packages = [
 python = ">=3.8,<=3.12"
 docstring-parser = ">=0.15"
 pydantic = {version = ">=2.0", optional = true}
+langchain-core = {version = ">=0.3.0", optional = true, python = ">=3.9"}
 
 [tool.poetry.extras]
 pydantic = ["pydantic"]
+langchain = ["pydantic", "langchain_core"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.2.0"
@@ -39,10 +41,11 @@ check_untyped_defs = "True"
 warn_return_any = "True"
 warn_unused_ignores = "True"
 show_error_codes = "True"
-disable_error_code = ["arg-type", "no-any-return", "misc", "assignment", "import-not-found", "unused-ignore", "attr-defined"]
+disable_error_code = ["arg-type", "no-any-return", "misc", "assignment", "import-not-found", "unused-ignore", "attr-defined", "valid-type"]
 
 [tool.deptry]
 ignore = ["DEP001"]
+ignore_notebooks = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

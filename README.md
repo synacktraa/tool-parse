@@ -24,8 +24,14 @@ pip install tool-parse
 ```
 
 - with `pydantic` support
+
   ```sh
   pip install "tool-parse[pydantic]"
+  ```
+
+- with `langchain` based integration
+  ```sh
+  pip install "tool-parse[langchain]
   ```
 
 ## 🌟 Key Features
@@ -73,7 +79,8 @@ pip install tool-parse
 
 ## Cookbooks
 
-- [GorillaLLM Integration](https://colab.research.google.com/drive/1C2WCgIZ7LnkpLt3KARL9ROh4iLwaACa6?usp=sharing)
+- [GorillaLLM Integration](./cookbooks/gorillaLLM-integration.ipynb)
+- [Langgraph+Ollama Example](./cookbooks//langgraph-ollama-example.ipynb)
 
 ## Usage 🤗
 
@@ -268,6 +275,57 @@ def calculate_discount(
 
 combined_registry = tr + new_registry
 ```
+
+## Third Party Integrations
+
+### Langchain
+
+Define the tools
+
+```python
+from tool_parse.integrations.langchain import ExtendedStructuredTool
+
+async def search_web(query: str, safe_search: bool = True):
+    """
+    Search the web.
+    :param query: Query to search for.
+    :param safe_search: If True, enable safe search.
+    """
+    return "not found"
+
+class UserInfo(NamedTuple):
+    """User information"""
+    name: str
+    age: int
+    role: Literal['admin', 'tester'] = 'tester'
+
+tools = [
+    ExtendedStructuredTool(func=search_web),
+    ExtendedStructuredTool(func=UserInfo, name="user_info", schema_spec='claude'),
+]
+# OR
+tools = ExtendedStructuredTool.from_objects(search_web, UserInfo, schema_spec='base')
+```
+
+Patch the chat model
+
+```python
+from langchain_ollama.chat_models import ChatOllama
+
+from tool_parse.integrations.langchain import patch_chat_model
+
+model = patch_chat_model(ChatOllama(model="llama3-groq-tool-use")) # Patch the instance
+# OR
+model = patch_chat_model(ChatOllama)(model="llama3-groq-tool-use") # Patch the class and then instantiate it
+```
+
+Bind the tools
+
+```python
+model.bind_tools(tools=tools)
+```
+
+> For langgraph agent usage, refer [Langgraph+Ollama Example](./cookbooks//langgraph-ollama-example.ipynb) cookbook
 
 ## 🤝 Contributing
 
