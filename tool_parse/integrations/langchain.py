@@ -50,7 +50,9 @@ class ExtendedStructuredTool(BaseTool):
     """The unique name of the tool that clearly communicates its purpose."""
     description: t.Optional[str] = None
     """Used to tell the model how/when/why to use the tool."""
-    func: type[ts.TypedDict | ts.NamedTuple | ts.PydanticModel] | ts.AsyncFunction | ts.Function
+    func: t.Union[
+        type[t.Union[ts.TypedDict, ts.NamedTuple, ts.PydanticModel]], ts.AsyncFunction, ts.Function
+    ]
     """
     The object to run when the tool is called.
     `func` is used as attribute name because it used widely in other components in langchain.
@@ -82,9 +84,11 @@ class ExtendedStructuredTool(BaseTool):
     @classmethod
     def from_objects(
         cls,
-        *__objs: type[ts.TypedDict | ts.NamedTuple | ts.PydanticModel]
-        | ts.AsyncFunction
-        | ts.Function,
+        *__objs: t.Union[
+            type[t.Union[ts.TypedDict, ts.NamedTuple, ts.PydanticModel]],
+            ts.AsyncFunction,
+            ts.Function,
+        ],
         schema_spec: t.Literal["base", "claude"] = "base",
         **kwargs: t.Any,
     ):
@@ -374,7 +378,7 @@ def patch_chat_model(__model: type[ChatModel]) -> type[ChatModel]:
     """
 
 
-def patch_chat_model(__model: ChatModel | type[ChatModel]):
+def patch_chat_model(__model: t.Union[ChatModel, type[ChatModel]]):
     class PatchedModel(BaseChatModel):
         def bind_tools(
             self,
