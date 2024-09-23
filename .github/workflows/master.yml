@@ -2,9 +2,13 @@ name: CI
 
 on:
   push:
+    paths-ignore:
+      - "cookbooks/**"
     branches:
       - master
   pull_request:
+    paths-ignore:
+      - "cookbooks/**"
     types: [opened, synchronize, reopened, ready_for_review]
 
 jobs:
