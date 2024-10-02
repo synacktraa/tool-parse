@@ -10,7 +10,6 @@ import sys
 import typing as t
 import uuid
 from contextvars import copy_context
-from types import MethodType
 
 from langchain_core.callbacks import (
     AsyncCallbackManager,
@@ -38,6 +37,7 @@ from langchain_core.tools.base import (
     _handle_tool_error,
     _handle_validation_error,
 )
+from langchain_core.utils.function_calling import convert_to_openai_tool
 from pydantic import PrivateAttr, ValidationError, model_validator
 
 from .. import _types as ts
@@ -346,6 +346,48 @@ class ExtendedStructuredTool(BaseTool):
 ChatModel = t.TypeVar("ChatModel", bound=BaseChatModel)
 
 
+def _validate_tool_choice(
+    choice: t.Union[dict, str, t.Literal["auto", "any", "none"], bool],
+    tools: t.List[BaseTool],
+    schema_list: t.List[t.Dict[str, t.Any]],
+):
+    if choice == "any":
+        if len(tools) > 1:
+            raise ValueError(
+                f"Groq does not currently support {choice=}. Should "
+                f"be one of 'auto', 'none', or the name of the tool to call."
+            )
+        else:
+            choice = convert_to_openai_tool(tools[0])["function"]["name"]
+    if isinstance(choice, str) and (choice not in ("auto", "any", "none")):
+        choice = {"type": "function", "function": {"name": choice}}
+    # TODO: Remove this update once 'any' is supported.
+    if isinstance(choice, dict) and (len(schema_list) != 1):
+        raise ValueError(
+            "When specifying `tool_choice`, you must provide exactly one "
+            f"tool. Received {len(schema_list)} tools."
+        )
+    if isinstance(choice, dict) and (
+        schema_list[0]["function"]["name"] != choice["function"]["name"]
+    ):
+        raise ValueError(
+            f"Tool choice {choice} was specified, but the only "
+            f"provided tool was {schema_list[0]['function']['name']}."
+        )
+    if isinstance(choice, bool):
+        if len(tools) > 1:
+            raise ValueError(
+                "tool_choice can only be True when there is one tool. Received "
+                f"{len(tools)} tools."
+            )
+        tool_name = schema_list[0]["function"]["name"]
+        choice = {
+            "type": "function",
+            "function": {"name": tool_name},
+        }
+    return choice
+
+
 @t.overload
 def patch_chat_model(__model: ChatModel) -> ChatModel:
     """
@@ -379,25 +421,35 @@ def patch_chat_model(__model: type[ChatModel]) -> type[ChatModel]:
 
 
 def patch_chat_model(__model: t.Union[ChatModel, type[ChatModel]]):
-    class PatchedModel(BaseChatModel):
+    chat_model_cls = __model if isinstance(__model, type) else __model.__class__
+
+    class PatchedModel(chat_model_cls):
         def bind_tools(
             self,
-            tools: t.Sequence[t.Any],
+            tools: t.Sequence[t.Union[BaseTool, ExtendedStructuredTool]],
             **kwargs: t.Any,
         ) -> Runnable[LanguageModelInput, BaseMessage]:
-            schema_list = []
+            formatted_tools = []
             for tool in tools:
                 if isinstance(tool, ExtendedStructuredTool):
-                    schema_list.append(tool.json_schema)
+                    formatted_tools.append(tool.json_schema)
                 else:
-                    schema_list.extend(super().bind_tools(tools=[tool], **kwargs))
-            return self.bind(tools=schema_list, **kwargs)
+                    # Use the original bind_tools method for builtin tool types
+                    formatted_tools.extend(
+                        super().bind_tools(tools=[tool], **kwargs).kwargs["tools"]
+                    )
+
+            if tool_choice := kwargs.get("tool_choice", None):
+                kwargs["tool_choice"] = _validate_tool_choice(
+                    choice=tool_choice, tools=tools, schema_list=formatted_tools
+                )
+
+            return self.bind(tools=formatted_tools, **kwargs)
 
     if isinstance(__model, type):
-        # Patch the class
-        __model.bind_tools = PatchedModel.bind_tools
+        # Return the patched class
+        return PatchedModel
     else:
-        # Patch the instance (pydantic is weird)
-        object.__setattr__(__model, "bind_tools", MethodType(PatchedModel.bind_tools, __model))
-
-    return __model
+        # Patch the instance
+        __model.__class__ = PatchedModel
+        return __model
