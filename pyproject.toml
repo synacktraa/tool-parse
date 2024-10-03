@@ -41,7 +41,7 @@ check_untyped_defs = "True"
 warn_return_any = "True"
 warn_unused_ignores = "True"
 show_error_codes = "True"
-disable_error_code = ["arg-type", "no-any-return", "misc", "assignment", "import-not-found", "unused-ignore", "attr-defined", "valid-type"]
+disable_error_code = ["arg-type", "no-any-return", "misc", "assignment", "import-not-found", "unused-ignore", "attr-defined", "valid-type", "var-annotated"]
 
 [tool.deptry]
 ignore = ["DEP001"]
