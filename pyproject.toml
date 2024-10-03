@@ -11,7 +11,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<=3.12"
+python = ">=3.8,<=3.12.*"
 docstring-parser = ">=0.15"
 pydantic = {version = ">=2.0", optional = true}
 langchain-core = {version = ">=0.3.0", optional = true, python = ">=3.9"}

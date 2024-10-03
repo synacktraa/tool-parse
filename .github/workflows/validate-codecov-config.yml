@@ -2,8 +2,6 @@ name: validate-codecov-config
 
 on:
   pull_request:
-    paths-ignore:
-      - "cookbooks/**"
     paths: [codecov.yaml]
   push:
     paths-ignore:
