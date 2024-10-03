@@ -31,7 +31,7 @@ pip install tool-parse
 
 - with `langchain` based integration
   ```sh
-  pip install "tool-parse[langchain]
+  pip install "tool-parse[langchain]"
   ```
 
 ## 🌟 Key Features

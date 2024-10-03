@@ -282,7 +282,11 @@ class TypedDictProtocol(t.Protocol):
         __required_keys__: t.ClassVar[t.FrozenSet[str]]
         __optional_keys__: t.ClassVar[t.FrozenSet[str]]
 
-    __subclasshook__ = classmethod(fake_subclass_hook)
+    if sys.version_info < (3, 12):
+        __subclasshook__ = classmethod(fake_subclass_hook)
+    else:
+        _is_runtime_protocol = True
+        __non_callable_proto_members__ = set()
 
 
 TypedDict = t.TypeVar("TypedDict", bound=TypedDictProtocol)
@@ -317,7 +321,11 @@ class NamedTupleProtocol(t.Protocol[NTKeys]):
     _field_defaults: t.ClassVar[t.Dict[str, t.Any]]
     __annotations__: t.Dict[str, type]
 
-    __subclasshook__ = classmethod(fake_subclass_hook)
+    if sys.version_info < (3, 12):
+        __subclasshook__ = classmethod(fake_subclass_hook)
+    else:
+        _is_runtime_protocol = True
+        __non_callable_proto_members__ = set()
 
 
 NamedTuple = t.TypeVar("NamedTuple", bound=NamedTupleProtocol)
